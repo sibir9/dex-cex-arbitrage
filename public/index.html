@@ -1,62 +1,11 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<title>Arbitrage Monitor</title>
-<style>
-  body { font-family: Arial, sans-serif; margin: 20px; }
-  table { border-collapse: collapse; margin: 20px 0; width: 100%; }
-  th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-  th { background: #eee; }
-  .profit-pos { color: green; font-weight: bold; }
-  .profit-neg { color: red; font-weight: bold; }
-</style>
+  <meta charset="UTF-8">
+  <title>Hello World</title>
 </head>
 <body>
-<h1>📊 Arbitrage Monitor</h1>
-<table id="table">
-  <thead>
-    <tr>
-      <th>Токен</th>
-      <th>ODOS цена</th>
-      <th>MEXC цена</th>
-      <th>Спред (%)</th>
-      <th>Прибыль (USDT)</th>
-    </tr>
-  </thead>
-  <tbody></tbody>
-</table>
-
-<script>
-async function loadPrices() {
-  const res = await fetch("/prices");
-  const data = await res.json();
-  const tbody = document.querySelector("#table tbody");
-  tbody.innerHTML = "";
-  for (const token in data.odos) {
-    const odos = data.odos[token] ? data.odos[token].toFixed(6) : "-";
-    const mexc = data.mexc[token] ? data.mexc[token].toFixed(6) : "-";
-    const spread = data.spread[token] ? data.spread[token].toFixed(2) : "-";
-    let profit = "-";
-    if (data.profit[token] != null) {
-      profit = data.profit[token] > 0
-        ? `<span class="profit-pos">+${data.profit[token].toFixed(4)}</span>`
-        : `<span class="profit-neg">${data.profit[token].toFixed(4)}</span>`;
-    }
-    tbody.innerHTML += `
-      <tr>
-        <td>${token}</td>
-        <td>${odos}</td>
-        <td>${mexc}</td>
-        <td>${spread}</td>
-        <td>${profit}</td>
-      </tr>
-    `;
-  }
-}
-
-loadPrices();
-setInterval(loadPrices, 5000);
-</script>
+  <h1>Hello World! 🌍</h1>
+  <p>Если вы видите это, фронтенд работает через FastAPI.</p>
 </body>
 </html>
