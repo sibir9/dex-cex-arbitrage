@@ -1,17 +1,20 @@
 from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-import os
+from fastapi.responses import HTMLResponse
 
 app = FastAPI()
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PUBLIC_DIR = os.path.join(BASE_DIR, "..", "public")
-
-# Монтируем папку public под /static (для любых статических файлов)
-app.mount("/static", StaticFiles(directory=PUBLIC_DIR), name="static")
-
-# Главная страница
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 def root():
-    return FileResponse(os.path.join(PUBLIC_DIR, "index.html"))
+    return """
+    <!DOCTYPE html>
+    <html lang="ru">
+    <head>
+        <meta charset="UTF-8">
+        <title>Hello World</title>
+    </head>
+    <body>
+        <h1>Hello World! 🌍</h1>
+        <p>Если вы видите это, фронтенд работает.</p>
+    </body>
+    </html>
+    """
