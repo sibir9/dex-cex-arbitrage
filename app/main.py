@@ -7,6 +7,7 @@ import requests
 
 app = FastAPI()
 
+# CORS (чтобы фронт мог обращаться к API)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -14,29 +15,25 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# Путь к директории проекта
+# Пути
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-# Путь к public
 PUBLIC_DIR = os.path.join(BASE_DIR, "..", "public")
 
-# Монтируем папку public под /static, и делаем отдельный маршрут / для index.html
-app.mount("/static", StaticFiles(directory=PUBLIC_DIR), name="static")
-
-@app.get("/")
-def root():
-    return open(os.path.join(PUBLIC_DIR, "index.html")).read()
+# Монтируем папку public как корень сайта
+app.mount("/", StaticFiles(directory=PUBLIC_DIR, html=True), name="public")
 
 # Загружаем токены
 with open(os.path.join(BASE_DIR, "..", "tokens.json")) as f:
     TOKENS = json.load(f)
 
-# Константы и функции для получения цен
+# Константы
 MEXC_FEE = 0.001
 ODOS_FEE = 0.002
 USDT_DECIMALS = 6
 CHAIN_ID = 137
 USDT = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f"
 
+# Функции получения цен
 def fetch_odos_price(token_address, usdt_amount=50):
     try:
         effective_usdt = usdt_amount * (1 - ODOS_FEE)
@@ -81,6 +78,7 @@ def fetch_mexc_avg_price(symbol, tokens_amount):
     except:
         return None
 
+# API для получения цен
 @app.get("/prices")
 def get_prices():
     result = {"odos": {}, "mexc": {}, "spread": {}, "profit": {}}
