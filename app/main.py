@@ -1,14 +1,11 @@
 from fastapi import FastAPI
-import requests
-import json
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+import json, requests
 
 app = FastAPI()
 
-# Монтируем папку public как статическую
-app.mount("/", StaticFiles(directory="public", html=True), name="public")
-
+# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,13 +13,16 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
+# Монтируем фронтенд
+app.mount("/static", StaticFiles(directory="public"), name="public")
+
+# Загрузка токенов
 with open("tokens.json") as f:
     TOKENS = json.load(f)
 
 MEXC_FEE = 0.001
 ODOS_FEE = 0.002
 USDT_DECIMALS = 6
-
 CHAIN_ID = 137
 USDT = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f"
 
