@@ -1,10 +1,13 @@
-
 from fastapi import FastAPI
 import requests
 import json
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
+
+# Монтируем папку public как статическую
+app.mount("/", StaticFiles(directory="public", html=True), name="public")
 
 app.add_middleware(
     CORSMiddleware,
