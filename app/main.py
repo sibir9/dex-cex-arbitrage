@@ -1,10 +1,12 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+import os
 
 app = FastAPI()
 
-# Монтируем public как статическую папку
-app.mount("/", StaticFiles(directory="../public", html=True), name="public")
+# Абсолютный путь к public
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PUBLIC_DIR = os.path.join(BASE_DIR, "public")
 
-
-
+# Монтируем папку public как статическую
+app.mount("/", StaticFiles(directory=PUBLIC_DIR, html=True), name="public")
