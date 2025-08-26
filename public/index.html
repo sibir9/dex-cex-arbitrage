@@ -1,0 +1,56 @@
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>Dex-Cex Arbitrage</title>
+<style>
+body { font-family: Arial; margin: 20px; }
+table { border-collapse: collapse; margin: 20px; width: 48%; float: left;}
+th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+th { background: #eee; }
+.profit-pos { color: green; font-weight: bold; }
+.profit-neg { color: red; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>📊 Arbitrage Monitor</h1>
+
+<table id="arbitrage">
+<thead>
+<tr>
+<th>Токен</th>
+<th>ODOS цена</th>
+<th>MEXC цена</th>
+<th>Спред (%)</th>
+<th>Прибыль (USDT)</th>
+</tr>
+</thead>
+<tbody></tbody>
+</table>
+
+<script>
+async function loadPrices() {
+  const res = await fetch("/prices");
+  const data = await res.json();
+  const tbody = document.querySelector("#arbitrage tbody");
+  tbody.innerHTML = "";
+  for(const token in data.odos){
+    const odos = data.odos[token] ? data.odos[token].toFixed(6) : "-";
+    const mexc = data.mexc[token] ? data.mexc[token].toFixed(6) : "-";
+    const spread = data.spread[token] ? data.spread[token].toFixed(2) : "-";
+    const profit = data.profit[token] ? (data.profit[token]>0 ? `<span class="profit-pos">+${data.profit[token].toFixed(4)}</span>` : `<span class="profit-neg">${data.profit[token].toFixed(4)}</span>`) : "-";
+    tbody.innerHTML += `<tr>
+      <td>${token}</td>
+      <td>${odos}</td>
+      <td>${mexc}</td>
+      <td>${spread}</td>
+      <td>${profit}</td>
+    </tr>`;
+  }
+}
+setInterval(loadPrices, 10000);
+loadPrices();
+</script>
+</body>
+</html>
