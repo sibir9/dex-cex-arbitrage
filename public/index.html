@@ -1,60 +1,66 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-<meta charset="UTF-8">
-<title>DEX-CEX Arbitrage</title>
-<style>
-body { font-family: Arial; margin: 20px; }
-table { border-collapse: collapse; width: 100%; margin-bottom: 30px; }
-th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
-th { background: #eee; }
-.profit-pos { color: green; font-weight: bold; }
-.profit-neg { color: red; font-weight: bold; }
-.tables { display: flex; gap: 20px; }
-.tables table { width: 50%; }
-</style>
+  <meta charset="UTF-8">
+  <title>DEX-CEX Arbitrage</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background-color: #eee; }
+    .profit-pos { color: green; font-weight: bold; }
+    .profit-neg { color: red; font-weight: bold; }
+  </style>
 </head>
 <body>
-<h1>📊 Arbitrage Monitor</h1>
-<div class="tables">
-<table id="odos-mexc">
-  <thead>
-    <tr>
-      <th>Токен</th>
-      <th>ODOS цена</th>
-      <th>MEXC цена</th>
-      <th>Спред (%)</th>
-      <th>Прибыль (USDT)</th>
-    </tr>
-  </thead>
-  <tbody></tbody>
-</table>
-</div>
+  <h1>📊 Arbitrage Monitor</h1>
+  <table id="arbitrage-table">
+    <thead>
+      <tr>
+        <th>Токен</th>
+        <th>ODOS цена</th>
+        <th>MEXC цена</th>
+        <th>Спред (%)</th>
+        <th>Прибыль (USDT)</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 
 <script>
-async function loadData() {
-  const res = await fetch("/prices");
-  const data = await res.json();
-  const tbody = document.querySelector("#odos-mexc tbody");
-  tbody.innerHTML = "";
-  for (const token of Object.keys(data.odos)) {
-    const row = document.createElement("tr");
-    const odos = data.odos[token] ? data.odos[token].toFixed(6) : "-";
-    const mexc = data.mexc[token] ? data.mexc[token].toFixed(6) : "-";
-    const spread = data.spread[token] ? data.spread[token].toFixed(2) : "-";
-    let profit = "-";
-    if (data.profit[token] != null) {
-      profit = data.profit[token].toFixed(4);
-      profit = data.profit[token] > 0 ? `<span class="profit-pos">+${profit}</span>` :
-               data.profit[token] < 0 ? `<span class="profit-neg">${profit}</span>` : profit;
+async function loadPrices() {
+  try {
+    const res = await fetch("/prices");
+    const data = await res.json();
+
+    const tbody = document.querySelector("#arbitrage-table tbody");
+    tbody.innerHTML = "";
+
+    for (const token of Object.keys(data.odos)) {
+      const odosPrice = data.odos[token];
+      const mexcPrice = data.mexc[token];
+      const spread = data.spread[token];
+      const profit = data.profit[token];
+
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${token}</td>
+        <td>${odosPrice !== null ? odosPrice.toFixed(6) : "-"}</td>
+        <td>${mexcPrice !== null ? mexcPrice.toFixed(6) : "-"}</td>
+        <td>${spread !== null ? spread.toFixed(2) : "-"}%</td>
+        <td>${profit !== null ? (profit > 0 ? `<span class="profit-pos">+${profit.toFixed(4)}</span>` :
+                                    `<span class="profit-neg">${profit.toFixed(4)}</span>`) : "-"}</td>
+      `;
+      tbody.appendChild(row);
     }
-    row.innerHTML = `<td>${token}</td><td>${odos}</td><td>${mexc}</td><td>${spread}</td><td>${profit}</td>`;
-    tbody.appendChild(row);
+  } catch (err) {
+    console.error("Ошибка при загрузке цен:", err);
   }
 }
 
-setInterval(loadData, 10000); // обновление каждые 10 секунд
-loadData();
+// Обновление каждые 10 секунд
+loadPrices();
+setInterval(loadPrices, 10000);
 </script>
 </body>
 </html>
