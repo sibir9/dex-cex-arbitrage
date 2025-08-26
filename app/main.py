@@ -1,12 +1,20 @@
-from fastapi import FastAPI
-from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
-import json, requests
 import os
+import json
+import requests
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+# ===== Папка проекта и public =====
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PUBLIC_DIR = os.path.join(PROJECT_ROOT, "public")
 
 app = FastAPI()
 
-# CORS
+# ===== Статика (фронтенд) =====
+app.mount("/", StaticFiles(directory=PUBLIC_DIR, html=True), name="public")
+
+# ===== CORS =====
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -14,22 +22,17 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# Монтируем фронтенд: папка public лежит рядом с app/
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-PUBLIC_DIR = os.path.join(PROJECT_ROOT, "public")
-app.mount("/", StaticFiles(directory=PUBLIC_DIR, html=True), name="public")
-
-# Загрузка токенов
-TOKENS_PATH = os.path.join(PROJECT_ROOT, "tokens.json")
-with open(TOKENS_PATH) as f:
+# ===== Конфиг токенов и комиссий =====
+with open(os.path.join(PROJECT_ROOT, "tokens.json")) as f:
     TOKENS = json.load(f)
 
 MEXC_FEE = 0.001
 ODOS_FEE = 0.002
-USDT_DECIMALS = 6
 CHAIN_ID = 137
 USDT = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f"
+USDT_DECIMALS = 6
 
+# ===== Функции получения цен =====
 def fetch_odos_price(token_address, usdt_amount=50):
     try:
         effective_usdt = usdt_amount * (1 - ODOS_FEE)
@@ -74,6 +77,7 @@ def fetch_mexc_avg_price(symbol, tokens_amount):
     except:
         return None
 
+# ===== API endpoint =====
 @app.get("/prices")
 def get_prices():
     result = {"odos": {}, "mexc": {}, "spread": {}, "profit": {}}
