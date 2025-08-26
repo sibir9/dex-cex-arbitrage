@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 import json, requests
+import os
 
 app = FastAPI()
 
@@ -13,11 +14,14 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
-# Монтируем фронтенд
-app.mount("/static", StaticFiles(directory="public"), name="public")
+# Монтируем фронтенд: папка public лежит рядом с app/
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PUBLIC_DIR = os.path.join(PROJECT_ROOT, "public")
+app.mount("/", StaticFiles(directory=PUBLIC_DIR, html=True), name="public")
 
 # Загрузка токенов
-with open("tokens.json") as f:
+TOKENS_PATH = os.path.join(PROJECT_ROOT, "tokens.json")
+with open(TOKENS_PATH) as f:
     TOKENS = json.load(f)
 
 MEXC_FEE = 0.001
