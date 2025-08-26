@@ -1,20 +1,21 @@
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse
+from fastapi.staticfiles import StaticFiles
+import os
+import json
 
 app = FastAPI()
 
-@app.get("/", response_class=HTMLResponse)
-def root():
-    return """
-    <!DOCTYPE html>
-    <html lang="ru">
-    <head>
-        <meta charset="UTF-8">
-        <title>Hello World</title>
-    </head>
-    <body>
-        <h1>Hello World! 🌍</h1>
-        <p>Если вы видите это, фронтенд работает.</p>
-    </body>
-    </html>
-    """
+# Путь к папке public
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+PUBLIC_DIR = os.path.join(BASE_DIR, "..", "public")
+
+# Монтируем public как статические файлы
+app.mount("/", StaticFiles(directory=PUBLIC_DIR, html=True), name="public")
+
+# Пример API
+@app.get("/prices")
+def get_prices():
+    # Загружаем токены
+    with open(os.path.join(BASE_DIR, "..", "tokens.json")) as f:
+        tokens = json.load(f)
+    return {"tokens": tokens, "example_price": 123.45}
