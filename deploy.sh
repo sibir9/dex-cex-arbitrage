@@ -7,6 +7,7 @@ cd /root/dex-cex-arbitrage || exit
 echo "===== Deploy started at $(date) =====" >> deploy.log
 
 # Сбрасываем изменения и подтягиваем ветку main
+git fetch origin
 git reset --hard >> deploy.log 2>&1
 git pull origin main >> deploy.log 2>&1
 
@@ -18,3 +19,12 @@ pip install -r requirements.txt >> deploy.log 2>&1
 systemctl restart fastapi.service >> deploy.log 2>&1
 
 echo "===== Deploy finished at $(date) =====" >> deploy.log
+
+
+
+
+
+
+
+
+
