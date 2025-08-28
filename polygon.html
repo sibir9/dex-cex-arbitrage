@@ -2,51 +2,55 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>NAKA Price (Polygon)</title>
+    <title>Polygon Token Prices</title>
     <style>
         body { font-family: Arial, sans-serif; background: #121212; color: #eee; text-align: center; }
-        .price-box { margin-top: 50px; padding: 20px; background: #1e1e1e; border-radius: 10px; display: inline-block; }
-        h1 { color: #00ffcc; }
-        .price { font-size: 1.5rem; margin: 10px 0; }
-        .spread { font-weight: bold; }
-        .up { color: #4caf50; }
-        .down { color: #f44336; }
-        .error { color: red; }
+        table { margin: 30px auto; border-collapse: collapse; width: 80%; }
+        th, td { border: 1px solid #444; padding: 10px; }
+        th { background: #1e1e1e; }
+        .up { color: #4caf50; font-weight: bold; }
+        .down { color: #f44336; font-weight: bold; }
     </style>
 </head>
 <body>
-    <div class="price-box">
-        <h1>NAKA/USDT (Polygon)</h1>
-        <div class="price">ODOS: <span id="odos">Loading...</span></div>
-        <div class="price">MEXC: <span id="mexc">Loading...</span></div>
-        <div class="price spread">Spread: <span id="spread">Calculating...</span></div>
-        <div id="error" class="error"></div>
-    </div>
+    <h1>Token Prices on Polygon (ODOS & MEXC)</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Token</th>
+                <th>ODOS Price (USDT)</th>
+                <th>MEXC Price (USDT)</th>
+                <th>Spread (%)</th>
+                <th>Error</th>
+            </tr>
+        </thead>
+        <tbody id="prices-body"></tbody>
+    </table>
 
     <script>
         async function loadPrices() {
             try {
-                const resp = await fetch("/price/naka");
+                const resp = await fetch("/price/all");
                 const data = await resp.json();
-
-                const odos = data.odos_price_usdt;
-                const mexc = data.mexc_price_usdt;
-
-                document.getElementById("odos").textContent = odos ? odos.toFixed(6) + " USDT" : "N/A";
-                document.getElementById("mexc").textContent = mexc ? mexc.toFixed(6) + " USDT" : "N/A";
-
-                if (odos && mexc) {
-                    const spread = ((mexc - odos) / odos * 100).toFixed(2);
-                    const spreadEl = document.getElementById("spread");
-                    spreadEl.textContent = spread + " %";
-                    spreadEl.className = (spread >= 0 ? "up" : "down");
-                } else {
-                    document.getElementById("spread").textContent = "N/A";
+                const tbody = document.getElementById("prices-body");
+                tbody.innerHTML = "";
+                for (const token in data) {
+                    const t = data[token];
+                    let spread = "-";
+                    if (t.odos_price_usdt && t.mexc_price_usdt) {
+                        spread = (((t.mexc_price_usdt - t.odos_price_usdt) / t.odos_price_usdt) * 100).toFixed(2);
+                        spread = (spread >= 0 ? `<span class="up">${spread}</span>` : `<span class="down">${spread}</span>`);
+                    }
+                    tbody.innerHTML += `<tr>
+                        <td>${token}</td>
+                        <td>${t.odos_price_usdt ? t.odos_price_usdt.toFixed(6) : "N/A"}</td>
+                        <td>${t.mexc_price_usdt ? t.mexc_price_usdt.toFixed(6) : "N/A"}</td>
+                        <td>${spread}</td>
+                        <td>${t.error || ""}</td>
+                    </tr>`;
                 }
-
-                document.getElementById("error").textContent = data.error ? "Error: " + data.error : "";
-            } catch (e) {
-                document.getElementById("error").textContent = "Fetch failed: " + e;
+            } catch(e) {
+                console.error("Fetch failed:", e);
             }
         }
 
@@ -54,5 +58,7 @@
         setInterval(loadPrices, 10000);
     </script>
 </body>
-<!-- version 2 -->
+
+
+<!-- version 3 -->
 </html>
