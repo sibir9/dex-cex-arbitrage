@@ -1,10 +1,12 @@
+# main.py
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 import subprocess
+from dex_cex_polygon import get_naka_prices
 
 app = FastAPI()
 
-# Главная страница
+# === Главная страница ===
 @app.get("/")
 async def root():
     return FileResponse(
@@ -16,7 +18,7 @@ async def root():
         }
     )
 
-# GitHub Webhook (только POST)
+# === GitHub Webhook (автодеплой) ===
 @app.post("/webhook")
 async def webhook(request: Request):
     try:
@@ -26,4 +28,15 @@ async def webhook(request: Request):
         return {"status": "ok"}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
-# TEST autorenew
+
+# === API для получения цен NAKA ===
+@app.get("/price/naka")
+def naka_price():
+    return get_naka_prices()
+
+# === Отдаём polygon.html ===
+@app.get("/polygon")
+def polygon_page():
+    return FileResponse("polygon.html")
+
+# version 2
