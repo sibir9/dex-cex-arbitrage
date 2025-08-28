@@ -8,7 +8,7 @@ if __name__ == "__main__":
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 import subprocess
-from dex_cex_polygon import get_naka_prices
+from dex_cex_polygon import get_all_prices
 
 app = FastAPI()
 
@@ -44,5 +44,10 @@ def naka_price():
 @app.get("/polygon")
 def polygon_page():
     return FileResponse("polygon.html")
+
+# === API для получения цен всех токенов ===
+@app.get("/price/all")
+def all_prices():
+    return get_all_prices()
 
 # version 3
