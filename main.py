@@ -1,3 +1,9 @@
+
+# если запускаешь uvicorn программно, можно указать порт:
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8080, reload=True)  # сменили 8000 -> 8080
+
 # main.py
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
