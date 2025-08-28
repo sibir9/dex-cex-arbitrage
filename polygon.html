@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>NAKA Price (Polygon)</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #121212; color: #eee; text-align: center; }
+        .price-box { margin-top: 50px; padding: 20px; background: #1e1e1e; border-radius: 10px; display: inline-block; }
+        h1 { color: #00ffcc; }
+        .price { font-size: 1.5rem; margin: 10px 0; }
+        .spread { font-weight: bold; }
+        .up { color: #4caf50; }
+        .down { color: #f44336; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <div class="price-box">
+        <h1>NAKA/USDT (Polygon)</h1>
+        <div class="price">ODOS: <span id="odos">Loading...</span></div>
+        <div class="price">MEXC: <span id="mexc">Loading...</span></div>
+        <div class="price spread">Spread: <span id="spread">Calculating...</span></div>
+        <div id="error" class="error"></div>
+    </div>
+
+    <script>
+        async function loadPrices() {
+            try {
+                const resp = await fetch("/price/naka");
+                const data = await resp.json();
+
+                const odos = data.odos_price_usdt;
+                const mexc = data.mexc_price_usdt;
+
+                document.getElementById("odos").textContent = odos ? odos.toFixed(6) + " USDT" : "N/A";
+                document.getElementById("mexc").textContent = mexc ? mexc.toFixed(6) + " USDT" : "N/A";
+
+                if (odos && mexc) {
+                    const spread = ((mexc - odos) / odos * 100).toFixed(2);
+                    const spreadEl = document.getElementById("spread");
+                    spreadEl.textContent = spread + " %";
+                    spreadEl.className = (spread >= 0 ? "up" : "down");
+                } else {
+                    document.getElementById("spread").textContent = "N/A";
+                }
+
+                document.getElementById("error").textContent = data.error ? "Error: " + data.error : "";
+            } catch (e) {
+                document.getElementById("error").textContent = "Fetch failed: " + e;
+            }
+        }
+
+        loadPrices();
+        setInterval(loadPrices, 10000);
+    </script>
+</body>
+</html>
