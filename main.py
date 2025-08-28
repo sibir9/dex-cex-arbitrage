@@ -26,3 +26,4 @@ async def webhook(request: Request):
         return {"status": "ok"}
     except Exception as e:
         return {"status": "error", "detail": str(e)}
+# TEST autorenew
