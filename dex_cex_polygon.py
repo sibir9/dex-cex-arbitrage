@@ -6,7 +6,7 @@ CHAIN_ID = 137  # Polygon
 USDT = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f"
 ODOS_FEE = 0.002
 MEXC_FEE = 0.001
-SUSHISWAP_FEE = 0.0025  # 0.25%
+SUSHISWAP_FEE = 0.003  # 0.3%
 
 # Загружаем список токенов из JSON
 TOKENS_FILE = os.path.join(os.path.dirname(__file__), "poltokens.json")
@@ -18,9 +18,13 @@ SUSHISWAP_SUBGRAPH = "https://api.thegraph.com/subgraphs/name/sushiswap/matic-ex
 def get_sushiswap_price(token_address: str):
     token_address = token_address.lower()
     usdt_address = USDT.lower()
+
     query = """
     {
-      pairs(first: 5, where: {token0_in: ["%s"], token1_in: ["%s"]}) {
+      pairs(first: 1, where: {
+        token0_in: ["%s"],
+        token1_in: ["%s"]
+      }) {
         token0 { id }
         token1 { id }
         token0Price
@@ -30,22 +34,26 @@ def get_sushiswap_price(token_address: str):
     """ % (token_address, usdt_address)
 
     try:
-        resp = requests.post(SUSHISWAP_SUBGRAPH, json={"query": query}, timeout=10).json()
-        pairs = resp.get("data", {}).get("pairs")
+        resp = requests.post(SUSHISWAP_SUBGRAPH, json={"query": query}, timeout=10)
+        data = resp.json().get("data", {})
+        pairs = data.get("pairs", [])
         if not pairs:
             return None
+
         pair = pairs[0]
         token0 = pair["token0"]["id"].lower()
         token1 = pair["token1"]["id"].lower()
+
         if token0 == token_address and token1 == usdt_address:
             price = float(pair["token1Price"])
         elif token1 == token_address and token0 == usdt_address:
             price = float(pair["token0Price"])
         else:
             return None
-        # Учитываем комиссию SushiSwap
+
         return price * (1 + SUSHISWAP_FEE)
     except Exception as e:
+        print("SushiSwap error:", e)
         return None
 
 def get_all_prices():
