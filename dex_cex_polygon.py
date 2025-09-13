@@ -6,48 +6,90 @@ CHAIN_ID = 137  # Polygon
 USDT = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f"
 ODOS_FEE = 0.002
 MEXC_FEE = 0.001
-QUICKSWAP_FEE = 0.002
+QUICKSWAP_FEE = 0.002  # 0.2%
+WETH = "0x7ceB23fD6bC0adD59E62ac25578270cFf1b9f619"  # Wrapped ETH on Polygon
 
-# Загружаем токены из JSON
+# Загружаем список токенов из JSON
 TOKENS_FILE = os.path.join(os.path.dirname(__file__), "poltokens.json")
 with open(TOKENS_FILE, "r") as f:
     TOKENS = json.load(f)
 
 QUICKSWAP_SUBGRAPH = "https://api.thegraph.com/subgraphs/name/ianlapham/quickswap"
 
-def get_quickswap_price(token_address: str) -> float | None:
-    """Возвращает цену токена в USDT на QuickSwap через новый subgraph"""
+def get_quickswap_price(token_address: str):
     token_address = token_address.lower()
-    query = """
-    query {
+    usdt_address = USDT.lower()
+    weth_address = WETH.lower()
+
+    # 1️⃣ Попробуем через derivedETH
+    query_derived = """
+    {
       token(id: "%s") {
         derivedETH
-      }
-      bundle(id: "1") {
-        ethPrice
       }
     }
     """ % token_address
 
     try:
-        resp = requests.post(QUICKSWAP_SUBGRAPH, json={"query": query}, timeout=10).json()
-        token_data = resp.get("data", {}).get("token")
-        bundle_data = resp.get("data", {}).get("bundle")
+        resp = requests.post(QUICKSWAP_SUBGRAPH, json={"query": query_derived}, timeout=10).json()
+        derived_eth = resp.get("data", {}).get("token", {}).get("derivedETH")
+        if derived_eth:
+            # Получаем цену ETH в USDT через пару WETH-USDT
+            query_eth_usdt = """
+            {
+              pair(id: "%s-%s") {
+                token0 { id }
+                token1 { id }
+                token0Price
+                token1Price
+              }
+            }
+            """ % (weth_address, usdt_address)
+            resp2 = requests.post(QUICKSWAP_SUBGRAPH, json={"query": query_eth_usdt}, timeout=10).json()
+            pair = resp2.get("data", {}).get("pair")
+            if pair:
+                if pair["token0"]["id"].lower() == weth_address:
+                    eth_usdt_price = float(pair["token1Price"])
+                else:
+                    eth_usdt_price = float(pair["token0Price"])
+                price = float(derived_eth) * eth_usdt_price
+                return price * (1 + QUICKSWAP_FEE)
+    except Exception:
+        pass
 
-        if not token_data or not bundle_data:
-            return None
+    # 2️⃣ Фоллбек: ищем прямую пару token-USDT
+    query_pair = """
+    {
+      pairs(first: 1, where: {
+        token0_in: ["%s","%s"],
+        token1_in: ["%s","%s"]
+      }) {
+        token0 { id }
+        token1 { id }
+        token0Price
+        token1Price
+      }
+    }
+    """ % (token_address, usdt_address, token_address, usdt_address)
 
-        derived_eth = float(token_data["derivedETH"])
-        eth_price_usd = float(bundle_data["ethPrice"])
-        price_usdt = derived_eth * eth_price_usd
-
-        # Учитываем комиссию QuickSwap
-        price_usdt *= (1 + QUICKSWAP_FEE)
-        return price_usdt
-
-    except Exception as e:
-        print(f"QuickSwap error: {e}")
+    try:
+        resp = requests.post(QUICKSWAP_SUBGRAPH, json={"query": query_pair}, timeout=10).json()
+        pairs = resp.get("data", {}).get("pairs", [])
+        if pairs:
+            pair = pairs[0]
+            token0 = pair["token0"]["id"].lower()
+            token1 = pair["token1"]["id"].lower()
+            if token0 == token_address and token1 == usdt_address:
+                price = float(pair["token1Price"])
+            elif token1 == token_address and token0 == usdt_address:
+                price = float(pair["token0Price"])
+            else:
+                return None
+            return price * (1 + QUICKSWAP_FEE)
+    except Exception:
         return None
+
+    return None
 
 def get_all_prices():
     result = {}
