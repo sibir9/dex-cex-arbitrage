@@ -3,6 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 import subprocess
 from dex_cex_polygon import get_all_prices
+from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
 
@@ -17,6 +18,10 @@ async def root():
             "Expires": "0"
         }
     )
+
+# Отдача всех HTML, JS, CSS файлов из текущей директории
+app.mount("/", StaticFiles(directory=".", html=True), name="static")
+
 
 # === GitHub Webhook (автодеплой) ===
 @app.post("/webhook")
