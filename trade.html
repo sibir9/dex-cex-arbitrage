@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Arbitrage Opportunities</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #121212; color: #eee; text-align: center; }
+        table { margin: 30px auto; border-collapse: collapse; width: 95%; }
+        th, td { border: 1px solid #444; padding: 10px; }
+        th { background: #1e1e1e; }
+        .up { color: #4caf50; font-weight: bold; }
+        .down { color: #f44336; font-weight: bold; }
+        button { padding: 5px 10px; background: #4caf50; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #45a049; }
+    </style>
+</head>
+<body>
+    <h1>Arbitrage Opportunities (Spread > 0)</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Token</th>
+                <th>ODOS Price (USDT)</th>
+                <th>MEXC Price (USDT)</th>
+                <th>SushiSwap Price (USDT)</th>
+                <th>Spread (%)</th>
+                <th>Error</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody id="trade-body"></tbody>
+    </table>
+
+    <script>
+        async function loadTrades() {
+            try {
+                const resp = await fetch("/price/all");
+                const data = await resp.json();
+                const tbody = document.getElementById("trade-body");
+                tbody.innerHTML = "";
+
+                for (const token in data) {
+                    const t = data[token];
+
+                    if (t.odos_price_usdt && t.sushiswap_price_usdt) {
+                        const maxPrice = Math.max(t.odos_price_usdt, t.sushiswap_price_usdt);
+                        const minPrice = Math.min(t.odos_price_usdt, t.sushiswap_price_usdt);
+                        const spread = ((maxPrice - minPrice) / minPrice) * 100;
+
+                        if (spread > 0) {
+                            const spreadHTML = `<span class="up">${spread.toFixed(2)}</span>`;
+                            tbody.innerHTML += `<tr>
+                                <td>${token}</td>
+                                <td>${t.odos_price_usdt ? t.odos_price_usdt.toFixed(6) : "N/A"}</td>
+                                <td>${t.mexc_price_usdt ? t.mexc_price_usdt.toFixed(6) : "N/A"}</td>
+                                <td>${t.sushiswap_price_usdt ? t.sushiswap_price_usdt.toFixed(6) : "N/A"}</td>
+                                <td>${spreadHTML}</td>
+                                <td>${t.error || ""}</td>
+                                <td><button onclick="trade('${token}')">Торговать</button></td>
+                            </tr>`;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("Fetch failed:", e);
+            }
+        }
+
+        function trade(token) {
+            alert("Запуск торговли для токена: " + token);
+            // Здесь позже можно добавить реальную логику сделки через API
+        }
+
+        loadTrades();
+        setInterval(loadTrades, 10000);
+    </script>
+</body>
+</html>
