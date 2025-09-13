@@ -3,7 +3,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 import subprocess
 from dex_cex_polygon import get_all_prices
-from fastapi.staticfiles import StaticFiles
+
 
 app = FastAPI()
 
@@ -18,9 +18,6 @@ async def root():
             "Expires": "0"
         }
     )
-
-# Отдача всех HTML, JS, CSS файлов из текущей директории
-app.mount("/", StaticFiles(directory=".", html=True), name="static")
 
 
 # === GitHub Webhook (автодеплой) ===
@@ -52,6 +49,20 @@ def polygon_page():
             "Expires": "0"
         }
     )
+
+
+# === Отдаём trade.html ===
+@app.get("/trade")
+def trade_page():
+    return FileResponse(
+        "trade.html",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
+
 
 # === API для получения цен всех токенов ===
 @app.get("/price/all")
