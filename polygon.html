@@ -13,14 +13,14 @@
     </style>
 </head>
 <body>
-    <h1>Token Prices on Polygon (ODOS, MEXC & QuickSwap)</h1>
+    <h1>Token Prices on Polygon (ODOS, MEXC & SushiSwap)</h1>
     <table>
         <thead>
             <tr>
                 <th>Token</th>
                 <th>ODOS Price (USDT)</th>
                 <th>MEXC Price (USDT)</th>
-                <th>QuickSwap Price (USDT)</th>
+                <th>SushiSwap Price (USDT)</th>
                 <th>Spread (%)</th>
                 <th>Error</th>
             </tr>
@@ -37,19 +37,16 @@
                 tbody.innerHTML = "";
                 for (const token in data) {
                     const t = data[token];
-
-                    // Spread между ODOS и MEXC
                     let spread = "-";
                     if (t.odos_price_usdt && t.mexc_price_usdt) {
                         spread = (((t.mexc_price_usdt - t.odos_price_usdt) / t.odos_price_usdt) * 100).toFixed(2);
                         spread = (spread >= 0 ? `<span class="up">${spread}</span>` : `<span class="down">${spread}</span>`);
                     }
-
                     tbody.innerHTML += `<tr>
                         <td>${token}</td>
                         <td>${t.odos_price_usdt ? t.odos_price_usdt.toFixed(6) : "N/A"}</td>
                         <td>${t.mexc_price_usdt ? t.mexc_price_usdt.toFixed(6) : "N/A"}</td>
-                        <td>${t.quickswap_price_usdt ? t.quickswap_price_usdt.toFixed(6) : "N/A"}</td>
+                        <td>${t.sushiswap_price_usdt ? t.sushiswap_price_usdt.toFixed(6) : "N/A"}</td>
                         <td>${spread}</td>
                         <td>${t.error || ""}</td>
                     </tr>`;
@@ -63,6 +60,4 @@
         setInterval(loadPrices, 10000);
     </script>
 </body>
-
-<!-- version 5 -->
 </html>
