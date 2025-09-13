@@ -6,50 +6,48 @@ CHAIN_ID = 137  # Polygon
 USDT = "0xc2132d05d31c914a87c6611c10748aeb04b58e8f"
 ODOS_FEE = 0.002
 MEXC_FEE = 0.001
-QUICKSWAP_FEE = 0.002  # 0.2%
+QUICKSWAP_FEE = 0.002
 
-# Загружаем список токенов из JSON
+# Загружаем токены из JSON
 TOKENS_FILE = os.path.join(os.path.dirname(__file__), "poltokens.json")
 with open(TOKENS_FILE, "r") as f:
     TOKENS = json.load(f)
 
 QUICKSWAP_SUBGRAPH = "https://api.thegraph.com/subgraphs/name/ianlapham/quickswap"
 
-def get_quickswap_price(token_address):
-    """
-    Возвращает цену токена в USDT на QuickSwap через TheGraph с учетом комиссии.
-    """
+def get_quickswap_price(token_address: str) -> float | None:
+    """Возвращает цену токена в USDT на QuickSwap через новый subgraph"""
     token_address = token_address.lower()
-    usdt_address = USDT.lower()
     query = """
-    {{
-      pairs(first: 1, where: {{token0_in: ["{token}", "{usdt}"], token1_in: ["{token}", "{usdt}"]}}) {{
-        token0 {{ id }}
-        token1 {{ id }}
-        token0Price
-        token1Price
-      }}
-    }}
-    """.format(token=token_address, usdt=usdt_address)
+    query {
+      token(id: "%s") {
+        derivedETH
+      }
+      bundle(id: "1") {
+        ethPrice
+      }
+    }
+    """ % token_address
 
-    resp = requests.post(QUICKSWAP_SUBGRAPH, json={"query": query}, timeout=10).json()
-    pairs = resp.get("data", {}).get("pairs")
-    if not pairs:
+    try:
+        resp = requests.post(QUICKSWAP_SUBGRAPH, json={"query": query}, timeout=10).json()
+        token_data = resp.get("data", {}).get("token")
+        bundle_data = resp.get("data", {}).get("bundle")
+
+        if not token_data or not bundle_data:
+            return None
+
+        derived_eth = float(token_data["derivedETH"])
+        eth_price_usd = float(bundle_data["ethPrice"])
+        price_usdt = derived_eth * eth_price_usd
+
+        # Учитываем комиссию QuickSwap
+        price_usdt *= (1 + QUICKSWAP_FEE)
+        return price_usdt
+
+    except Exception as e:
+        print(f"QuickSwap error: {e}")
         return None
-
-    pair = pairs[0]
-    token0 = pair["token0"]["id"].lower()
-    token1 = pair["token1"]["id"].lower()
-
-    if token0 == token_address and token1 == usdt_address:
-        price = float(pair["token1Price"])
-    elif token1 == token_address and token0 == usdt_address:
-        price = float(pair["token0Price"])
-    else:
-        return None
-
-    # Учитываем комиссию QuickSwap
-    return price * (1 + QUICKSWAP_FEE)
 
 def get_all_prices():
     result = {}
@@ -113,4 +111,4 @@ def get_all_prices():
 
     return result
 
-# version 5
+# version 6
