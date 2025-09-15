@@ -15,7 +15,7 @@
     </style>
 </head>
 <body>
-    <h1>Arbitrage</h1>
+    <h1>Arbitrage Opportunities</h1>
     <table>
         <thead>
             <tr>
@@ -23,7 +23,7 @@
                 <th>ODOS Price (USDT)</th>
                 <th>MEXC Price (USDT)</th>
                 <th>Spread (%)</th>
-                <th>TTL (s)</th>
+                <th>TTL</th>
                 <th>Error</th>
                 <th>Action</th>
             </tr>
@@ -33,6 +33,8 @@
 
     <script>
         const ttlMap = {};
+        const USDT_ADDRESS = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"; // USDT
+        const CHAIN_ID = 137;
 
         async function loadTrades() {
             try {
@@ -51,16 +53,21 @@
 
                         if (spread > 0) {
                             if (!ttlMap[token]) ttlMap[token] = now;
-                            const ttl = Math.floor((now - ttlMap[token]) / 1000);
+                            const ttlSeconds = Math.floor((now - ttlMap[token]) / 1000);
+                            const minutes = Math.floor(ttlSeconds / 60);
+                            const seconds = ttlSeconds % 60;
+                            const ttlDisplay = `${minutes}:${seconds.toString().padStart(2,'0')}`;
+
+                            const dexUrl = `https://dapp.quickswap.exchange/swap/best/${USDT_ADDRESS}/${t.address}?chainId=${CHAIN_ID}`;
 
                             tbody.innerHTML += `<tr>
                                 <td class="clickable" onclick="copyAddress('${t.address}')">${token}</td>
                                 <td>${t.odos_price_usdt.toFixed(6)}</td>
                                 <td>${t.mexc_price_usdt.toFixed(6)}</td>
                                 <td><span class="up">${spread.toFixed(2)}</span></td>
-                                <td>${ttl}</td>
+                                <td>${ttlDisplay}</td>
                                 <td>${t.error || ""}</td>
-                                <td><button onclick="trade('${token}')">Торговать</button></td>
+                                <td><a href="${dexUrl}" target="_blank"><button>Купить на DEX</button></a></td>
                             </tr>`;
                         } else {
                             delete ttlMap[token];
@@ -72,12 +79,7 @@
             }
         }
 
-        function trade(token) {
-            alert("Запуск торговли для токена: " + token);
-        }
-
         function copyAddress(address) {
-            // Временный textarea для совместимости
             const textarea = document.createElement("textarea");
             textarea.value = address;
             document.body.appendChild(textarea);
