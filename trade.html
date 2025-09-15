@@ -5,25 +5,30 @@
     <title>Arbitrage Opportunities</title>
     <style>
         body { font-family: Arial, sans-serif; background: #121212; color: #eee; text-align: center; }
-        table { margin: 20px auto; border-collapse: collapse; width: 95%; }
+        table { margin: 30px auto; border-collapse: collapse; width: 95%; }
         th, td { border: 1px solid #444; padding: 10px; cursor: default; }
         th { background: #1e1e1e; }
         .clickable { color: #4caf50; font-weight: bold; cursor: pointer; text-decoration: underline; }
         .up { color: #4caf50; font-weight: bold; }
         button { padding: 5px 10px; background: #4caf50; color: #fff; border: none; border-radius: 4px; cursor: pointer; margin: 2px; }
         button:hover { background: #45a049; }
-        .filters { margin-bottom: 20px; }
+        .filters { margin: 20px; }
         .filters label { margin-right: 10px; }
-        .filters input { width: 60px; margin-right: 20px; padding: 3px; border-radius: 3px; border: 1px solid #444; background: #222; color: #fff; }
     </style>
 </head>
 <body>
-    <h1>Arbitrage Opportunities</h1>
+    <h1>Arbitrage</h1>
 
     <div class="filters">
-        <label>Минимальный спред (%): <input type="number" id="minSpread" value="0.01" step="0.01"></label>
-        <label>Минимальный Lifetime (мин): <input type="number" id="minLifetime" value="0" step="1"></label>
-        <button onclick="loadTrades()">Применить фильтр</button>
+        <label>
+            Минимальный спред (%): 
+            <input type="number" id="minSpread" value="0.01" step="0.01">
+        </label>
+        <label>
+            Минимальный Lifetime (мин): 
+            <input type="number" id="minLifetime" value="1" step="1">
+        </label>
+        <button onclick="applyFilters()">Применить фильтр</button>
         <button onclick="resetFilters()">Сбросить фильтр</button>
     </div>
 
@@ -43,43 +48,50 @@
 
     <script>
         const ttlMap = {};
+        let cachedData = {};
         const USDT_ADDRESS = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"; 
-        const CHAIN_ID = 137;
+        const CHAIN_ID = 137; // Polygon
 
-        async function loadTrades() {
+        async function fetchTrades() {
             try {
                 const resp = await fetch("/price/all");
-                const data = await resp.json();
-                const tbody = document.getElementById("trade-body");
-                tbody.innerHTML = "";
+                cachedData = await resp.json();
+                renderTrades();  // сразу показываем с фильтрами
+            } catch (e) {
+                console.error("Fetch failed:", e);
+            }
+        }
 
-                const now = Date.now();
+        function renderTrades() {
+            const tbody = document.getElementById("trade-body");
+            tbody.innerHTML = "";
 
-                const minSpread = parseFloat(document.getElementById("minSpread").value) || 0;
-                const minLifetime = parseInt(document.getElementById("minLifetime").value) || 0;
+            const now = Date.now();
+            const minSpread = parseFloat(document.getElementById("minSpread").value) || 0;
+            const minLifetime = parseInt(document.getElementById("minLifetime").value) || 0;
 
-                for (const token in data) {
-                    const t = data[token];
+            for (const token in cachedData) {
+                const t = cachedData[token];
+                if (t.odos_price_usdt && t.mexc_price_usdt) {
+                    const spread = ((t.mexc_price_usdt - t.odos_price_usdt) / t.odos_price_usdt) * 100;
 
-                    if (t.odos_price_usdt && t.mexc_price_usdt) {
-                        const spread = ((t.mexc_price_usdt - t.odos_price_usdt) / t.odos_price_usdt) * 100;
+                    if (spread > 0) {
+                        if (!ttlMap[token]) ttlMap[token] = now;
+                        const ttlSeconds = Math.floor((now - ttlMap[token]) / 1000);
+                        const minutes = Math.floor(ttlSeconds / 60);
+                        const seconds = ttlSeconds % 60;
+                        const ttlDisplay = `${minutes}:${seconds.toString().padStart(2,'0')}`;
 
-                        if (spread > 0) {
-                            if (!ttlMap[token]) ttlMap[token] = now;
-                            const ttlSeconds = Math.floor((now - ttlMap[token]) / 1000);
-                            const minutes = Math.floor(ttlSeconds / 60);
-                            const seconds = ttlSeconds % 60;
-                            const ttlDisplay = `${minutes}:${seconds.toString().padStart(2,'0')}`;
+                        // фильтрация
+                        if (spread < minSpread) continue;
+                        if (minutes < minLifetime) continue;
 
-                            // Фильтры
-                            if (spread < minSpread) continue;
-                            if (minutes < minLifetime) continue;
+                        const dexUrl = `https://dapp.quickswap.exchange/swap/best/${USDT_ADDRESS}/${t.address}?chainId=${CHAIN_ID}`;
+                        const depositUrl = `https://www.mexc.com/ru-RU/assets/deposit/${token}`;
+                        const sellUrl = `https://www.mexc.com/ru-RU/exchange/${token}_USDT`;
 
-                            const dexUrl = `https://dapp.quickswap.exchange/swap/best/${USDT_ADDRESS}/${t.address}?chainId=${CHAIN_ID}`;
-                            const depositUrl = `https://www.mexc.com/ru-RU/assets/deposit/${token}`;
-                            const sellUrl = `https://www.mexc.com/ru-RU/exchange/${token}_USDT`;
-
-                            tbody.innerHTML += `<tr>
+                        tbody.innerHTML += `
+                            <tr>
                                 <td class="clickable" onclick="copyAddress('${t.address}')">${token}</td>
                                 <td>${t.odos_price_usdt.toFixed(6)}</td>
                                 <td>${t.mexc_price_usdt.toFixed(6)}</td>
@@ -91,54 +103,45 @@
                                     <a href="${sellUrl}" target="_blank"><button>Продать на CEX</button></a>
                                 </td>
                             </tr>`;
-                        } else {
-                            delete ttlMap[token];
-                        }
+                    } else {
+                        delete ttlMap[token];
                     }
                 }
-            } catch (e) {
-                console.error("Fetch failed:", e);
             }
         }
 
-        function copyAddress(address) {
-            const textarea = document.createElement("textarea");
-            textarea.value = address;
-            document.body.appendChild(textarea);
-            textarea.select();
-            try {
-                document.execCommand("copy");
-                showNotification("Адрес контракта скопирован");
-            } catch (err) {
-                console.error("Ошибка копирования:", err);
-            }
-            document.body.removeChild(textarea);
-        }
-
-        function showNotification(text) {
-            const notif = document.createElement('div');
-            notif.textContent = text;
-            notif.style.position = 'fixed';
-            notif.style.bottom = '20px';
-            notif.style.right = '20px';
-            notif.style.background = '#4caf50';
-            notif.style.color = '#fff';
-            notif.style.padding = '10px 15px';
-            notif.style.borderRadius = '5px';
-            notif.style.boxShadow = '0 2px 5px rgba(0,0,0,0.3)';
-            notif.style.zIndex = '9999';
-            document.body.appendChild(notif);
-            setTimeout(() => notif.remove(), 2000);
+        function applyFilters() {
+            renderTrades(); // моментальное обновление
         }
 
         function resetFilters() {
             document.getElementById("minSpread").value = 0.01;
-            document.getElementById("minLifetime").value = 0;
-            loadTrades();
+            document.getElementById("minLifetime").value = 1;
+            renderTrades(); // сразу перерисовать
         }
 
-        loadTrades();
-        setInterval(loadTrades, 10000);
+        function copyAddress(address) {
+            navigator.clipboard.writeText(address).then(() => {
+                const notif = document.createElement('div');
+                notif.textContent = "Адрес контракта скопирован";
+                notif.style.position = 'fixed';
+                notif.style.bottom = '20px';
+                notif.style.right = '20px';
+                notif.style.background = '#4caf50';
+                notif.style.color = '#fff';
+                notif.style.padding = '10px 15px';
+                notif.style.borderRadius = '5px';
+                notif.style.boxShadow = '0 2px 5px rgba(0,0,0,0.3)';
+                notif.style.zIndex = '9999';
+                document.body.appendChild(notif);
+                setTimeout(() => notif.remove(), 2000);
+            }).catch(err => {
+                console.error('Ошибка копирования:', err);
+            });
+        }
+
+        fetchTrades();
+        setInterval(fetchTrades, 10000);
     </script>
 </body>
 </html>
