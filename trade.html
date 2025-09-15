@@ -26,7 +26,7 @@
         </label>
         <label>
             Минимальный Lifetime (мин): 
-            <input type="number" id="minLifetime" value="1" step="1">
+            <input type="number" id="minLifetime" value="0" step="1">
         </label>
         <button onclick="applyFilters()">Применить фильтр</button>
         <button onclick="resetFilters()">Сбросить фильтр</button>
@@ -116,7 +116,7 @@
 
         function resetFilters() {
             document.getElementById("minSpread").value = 0.01;
-            document.getElementById("minLifetime").value = 1;
+            document.getElementById("minLifetime").value = 0;
             renderTrades(); // сразу перерисовать
         }
 
