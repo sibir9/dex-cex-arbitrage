@@ -10,21 +10,20 @@
         th { background: #1e1e1e; }
         .clickable { color: #4caf50; font-weight: bold; cursor: pointer; text-decoration: underline; }
         .up { color: #4caf50; font-weight: bold; }
-        button { padding: 5px 10px; background: #4caf50; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
+        button { padding: 5px 10px; background: #4caf50; color: #fff; border: none; border-radius: 4px; cursor: pointer; margin: 2px; }
         button:hover { background: #45a049; }
     </style>
 </head>
 <body>
-    <h1>Arbitrage Opportunities</h1>
+    <h1>Arbitrage</h1>
     <table>
         <thead>
             <tr>
                 <th>Token</th>
-                <th>ODOS Price (USDT)</th>
-                <th>MEXC Price (USDT)</th>
+                <th>DEX Price (USDT)</th>
+                <th>CEX Price (USDT)</th>
                 <th>Spread (%)</th>
-                <th>TTL</th>
-                <th>Error</th>
+                <th>Lifetime</th>
                 <th>Action</th>
             </tr>
         </thead>
@@ -59,6 +58,8 @@
                             const ttlDisplay = `${minutes}:${seconds.toString().padStart(2,'0')}`;
 
                             const dexUrl = `https://dapp.quickswap.exchange/swap/best/${USDT_ADDRESS}/${t.address}?chainId=${CHAIN_ID}`;
+                            const depositUrl = `https://www.mexc.com/ru-RU/assets/deposit/${token}`;
+                            const sellUrl = `https://www.mexc.com/ru-RU/exchange/${token}_USDT`;
 
                             tbody.innerHTML += `<tr>
                                 <td class="clickable" onclick="copyAddress('${t.address}')">${token}</td>
@@ -66,8 +67,11 @@
                                 <td>${t.mexc_price_usdt.toFixed(6)}</td>
                                 <td><span class="up">${spread.toFixed(2)}</span></td>
                                 <td>${ttlDisplay}</td>
-                                <td>${t.error || ""}</td>
-                                <td><a href="${dexUrl}" target="_blank"><button>Купить на DEX</button></a></td>
+                                <td>
+                                    <a href="${dexUrl}" target="_blank"><button>Купить на DEX</button></a>
+                                    <a href="${depositUrl}" target="_blank"><button>Депозит на CEX</button></a>
+                                    <a href="${sellUrl}" target="_blank"><button>Продать на CEX</button></a>
+                                </td>
                             </tr>`;
                         } else {
                             delete ttlMap[token];
