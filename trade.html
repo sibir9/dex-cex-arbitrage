@@ -9,9 +9,9 @@
         th, td { border: 1px solid #444; padding: 10px; }
         th { background: #1e1e1e; }
         .up { color: #4caf50; font-weight: bold; }
-        .down { color: #f44336; font-weight: bold; }
         button { padding: 5px 10px; background: #4caf50; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
         button:hover { background: #45a049; }
+        .clickable { cursor: pointer; color: #1e90ff; text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -23,6 +23,7 @@
                 <th>ODOS Price (USDT)</th>
                 <th>MEXC Price (USDT)</th>
                 <th>Spread (%)</th>
+                <th>Age (s)</th>
                 <th>Error</th>
                 <th>Action</th>
             </tr>
@@ -31,6 +32,8 @@
     </table>
 
     <script>
+        const spreadTimestamps = {}; // сохраняем время первого появления спреда
+
         async function loadTrades() {
             try {
                 const resp = await fetch("/price/all");
@@ -38,23 +41,32 @@
                 const tbody = document.getElementById("trade-body");
                 tbody.innerHTML = "";
 
+                const now = Date.now();
+
                 for (const token in data) {
                     const t = data[token];
 
                     if (t.odos_price_usdt && t.mexc_price_usdt) {
-                        // считаем спред только если MEXC дороже ODOS
                         const spread = ((t.mexc_price_usdt - t.odos_price_usdt) / t.odos_price_usdt) * 100;
 
                         if (spread > 0) {
+                            if (!spreadTimestamps[token]) {
+                                spreadTimestamps[token] = now; // зафиксировали момент появления
+                            }
+                            const ageSeconds = Math.floor((now - spreadTimestamps[token]) / 1000);
+
                             const spreadHTML = `<span class="up">${spread.toFixed(2)}</span>`;
                             tbody.innerHTML += `<tr>
-                                <td>${token}</td>
+                                <td class="clickable" onclick="copyAddress('${t.address}')">${token}</td>
                                 <td>${t.odos_price_usdt.toFixed(6)}</td>
                                 <td>${t.mexc_price_usdt.toFixed(6)}</td>
                                 <td>${spreadHTML}</td>
+                                <td>${ageSeconds}</td>
                                 <td>${t.error || ""}</td>
                                 <td><button onclick="trade('${token}')">Торговать</button></td>
                             </tr>`;
+                        } else {
+                            delete spreadTimestamps[token]; // сброс, если спред ушёл
                         }
                     }
                 }
@@ -65,7 +77,12 @@
 
         function trade(token) {
             alert("Запуск торговли для токена: " + token);
-            // Здесь позже можно добавить реальную логику сделки через API
+        }
+
+        function copyAddress(address) {
+            navigator.clipboard.writeText(address).then(() => {
+                alert("Скопирован адрес: " + address);
+            });
         }
 
         loadTrades();
