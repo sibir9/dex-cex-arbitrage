@@ -9,13 +9,38 @@
         th, td { border: 1px solid #444; padding: 10px; }
         th { background: #1e1e1e; }
         .up { color: #4caf50; font-weight: bold; }
+        .down { color: #f44336; font-weight: bold; }
         button { padding: 5px 10px; background: #4caf50; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
         button:hover { background: #45a049; }
-        .clickable { cursor: pointer; color: #1e90ff; text-decoration: underline; }
+        .clickable { cursor: pointer; color: #4caf50; font-weight: bold; }
+        .clickable:hover { text-decoration: underline; }
+
+        /* стиль уведомления */
+        #toast {
+            visibility: hidden;
+            min-width: 200px;
+            margin-left: -100px;
+            background-color: #333;
+            color: #fff;
+            text-align: center;
+            border-radius: 8px;
+            padding: 12px;
+            position: fixed;
+            left: 50%;
+            bottom: 30px;
+            z-index: 9999;
+            font-size: 14px;
+            opacity: 0;
+            transition: opacity 0.5s, visibility 0.5s;
+        }
+        #toast.show {
+            visibility: visible;
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
-    <h1>Arbitrage Opportunities (MEXC > ODOS)</h1>
+    <h1>Arbitrage Opportunities (Spread > 0)</h1>
     <table>
         <thead>
             <tr>
@@ -23,7 +48,6 @@
                 <th>ODOS Price (USDT)</th>
                 <th>MEXC Price (USDT)</th>
                 <th>Spread (%)</th>
-                <th>Age (s)</th>
                 <th>Error</th>
                 <th>Action</th>
             </tr>
@@ -31,17 +55,16 @@
         <tbody id="trade-body"></tbody>
     </table>
 
-    <script>
-        const spreadTimestamps = {}; // сохраняем время первого появления спреда
+    <!-- уведомление -->
+    <div id="toast">Адрес контракта скопирован</div>
 
+    <script>
         async function loadTrades() {
             try {
                 const resp = await fetch("/price/all");
                 const data = await resp.json();
                 const tbody = document.getElementById("trade-body");
                 tbody.innerHTML = "";
-
-                const now = Date.now();
 
                 for (const token in data) {
                     const t = data[token];
@@ -50,23 +73,15 @@
                         const spread = ((t.mexc_price_usdt - t.odos_price_usdt) / t.odos_price_usdt) * 100;
 
                         if (spread > 0) {
-                            if (!spreadTimestamps[token]) {
-                                spreadTimestamps[token] = now; // зафиксировали момент появления
-                            }
-                            const ageSeconds = Math.floor((now - spreadTimestamps[token]) / 1000);
-
                             const spreadHTML = `<span class="up">${spread.toFixed(2)}</span>`;
                             tbody.innerHTML += `<tr>
                                 <td class="clickable" onclick="copyAddress('${t.address}')">${token}</td>
                                 <td>${t.odos_price_usdt.toFixed(6)}</td>
                                 <td>${t.mexc_price_usdt.toFixed(6)}</td>
                                 <td>${spreadHTML}</td>
-                                <td>${ageSeconds}</td>
                                 <td>${t.error || ""}</td>
                                 <td><button onclick="trade('${token}')">Торговать</button></td>
                             </tr>`;
-                        } else {
-                            delete spreadTimestamps[token]; // сброс, если спред ушёл
                         }
                     }
                 }
@@ -81,8 +96,16 @@
 
         function copyAddress(address) {
             navigator.clipboard.writeText(address).then(() => {
-                alert("Скопирован адрес: " + address);
+                showToast();
+            }).catch(err => {
+                console.error("Ошибка копирования:", err);
             });
+        }
+
+        function showToast() {
+            const toast = document.getElementById("toast");
+            toast.className = "show";
+            setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 2000);
         }
 
         loadTrades();
