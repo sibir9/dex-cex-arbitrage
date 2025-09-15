@@ -15,7 +15,7 @@
     </style>
 </head>
 <body>
-    <h1>Arbitrage Opportunities</h1>
+    <h1>Arbitrage</h1>
     <table>
         <thead>
             <tr>
@@ -32,7 +32,6 @@
     </table>
 
     <script>
-        // Сохраняем время жизни спреда для каждого токена
         const ttlMap = {};
 
         async function loadTrades() {
@@ -51,7 +50,6 @@
                         const spread = ((t.mexc_price_usdt - t.odos_price_usdt) / t.odos_price_usdt) * 100;
 
                         if (spread > 0) {
-                            // Время жизни спреда
                             if (!ttlMap[token]) ttlMap[token] = now;
                             const ttl = Math.floor((now - ttlMap[token]) / 1000);
 
@@ -65,7 +63,6 @@
                                 <td><button onclick="trade('${token}')">Торговать</button></td>
                             </tr>`;
                         } else {
-                            // Убираем TTL для токенов с отрицательным spread
                             delete ttlMap[token];
                         }
                     }
@@ -80,23 +77,34 @@
         }
 
         function copyAddress(address) {
-            navigator.clipboard.writeText(address).then(() => {
-                const notif = document.createElement('div');
-                notif.textContent = "Адрес контракта скопирован";
-                notif.style.position = 'fixed';
-                notif.style.bottom = '20px';
-                notif.style.right = '20px';
-                notif.style.background = '#4caf50';
-                notif.style.color = '#fff';
-                notif.style.padding = '10px 15px';
-                notif.style.borderRadius = '5px';
-                notif.style.boxShadow = '0 2px 5px rgba(0,0,0,0.3)';
-                notif.style.zIndex = '9999';
-                document.body.appendChild(notif);
-                setTimeout(() => notif.remove(), 2000);
-            }).catch(err => {
-                console.error('Ошибка копирования:', err);
-            });
+            // Временный textarea для совместимости
+            const textarea = document.createElement("textarea");
+            textarea.value = address;
+            document.body.appendChild(textarea);
+            textarea.select();
+            try {
+                document.execCommand("copy");
+                showNotification("Адрес контракта скопирован");
+            } catch (err) {
+                console.error("Ошибка копирования:", err);
+            }
+            document.body.removeChild(textarea);
+        }
+
+        function showNotification(text) {
+            const notif = document.createElement('div');
+            notif.textContent = text;
+            notif.style.position = 'fixed';
+            notif.style.bottom = '20px';
+            notif.style.right = '20px';
+            notif.style.background = '#4caf50';
+            notif.style.color = '#fff';
+            notif.style.padding = '10px 15px';
+            notif.style.borderRadius = '5px';
+            notif.style.boxShadow = '0 2px 5px rgba(0,0,0,0.3)';
+            notif.style.zIndex = '9999';
+            document.body.appendChild(notif);
+            setTimeout(() => notif.remove(), 2000);
         }
 
         loadTrades();
