@@ -17,10 +17,10 @@ def get_all_prices():
     result = {}
     for token in TOKENS:
         res = {
+            "address": token["address"],   # добавляем сюда адрес токена
             "odos_price_usdt": None,
             "mexc_price_usdt": None,
-            "error": None,
-            "address": token["address"]  # добавляем адрес токена
+            "error": None
         }
         try:
             # === ODOS ===
