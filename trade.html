@@ -5,17 +5,27 @@
     <title>Arbitrage Opportunities</title>
     <style>
         body { font-family: Arial, sans-serif; background: #121212; color: #eee; text-align: center; }
-        table { margin: 30px auto; border-collapse: collapse; width: 95%; }
+        table { margin: 20px auto; border-collapse: collapse; width: 95%; }
         th, td { border: 1px solid #444; padding: 10px; cursor: default; }
         th { background: #1e1e1e; }
         .clickable { color: #4caf50; font-weight: bold; cursor: pointer; text-decoration: underline; }
         .up { color: #4caf50; font-weight: bold; }
         button { padding: 5px 10px; background: #4caf50; color: #fff; border: none; border-radius: 4px; cursor: pointer; margin: 2px; }
         button:hover { background: #45a049; }
+        .filters { margin-bottom: 20px; }
+        .filters label { margin-right: 10px; }
+        .filters input { width: 60px; margin-right: 20px; padding: 3px; border-radius: 3px; border: 1px solid #444; background: #222; color: #fff; }
     </style>
 </head>
 <body>
-    <h1>Arbitrage</h1>
+    <h1>Arbitrage Opportunities</h1>
+
+    <div class="filters">
+        <label>Минимальный спред (%): <input type="number" id="minSpread" value="0" step="0.01"></label>
+        <label>Минимальный Lifetime (мин): <input type="number" id="minLifetime" value="0" step="1"></label>
+        <button onclick="loadTrades()">Применить фильтр</button>
+    </div>
+
     <table>
         <thead>
             <tr>
@@ -32,7 +42,7 @@
 
     <script>
         const ttlMap = {};
-        const USDT_ADDRESS = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"; // USDT
+        const USDT_ADDRESS = "0xc2132D05D31c914a87C6611C10748AEb04B58e8F"; 
         const CHAIN_ID = 137;
 
         async function loadTrades() {
@@ -43,6 +53,9 @@
                 tbody.innerHTML = "";
 
                 const now = Date.now();
+
+                const minSpread = parseFloat(document.getElementById("minSpread").value) || 0;
+                const minLifetime = parseInt(document.getElementById("minLifetime").value) || 0;
 
                 for (const token in data) {
                     const t = data[token];
@@ -56,6 +69,10 @@
                             const minutes = Math.floor(ttlSeconds / 60);
                             const seconds = ttlSeconds % 60;
                             const ttlDisplay = `${minutes}:${seconds.toString().padStart(2,'0')}`;
+
+                            // Применяем фильтр
+                            if (spread < minSpread) continue;
+                            if (minutes < minLifetime) continue;
 
                             const dexUrl = `https://dapp.quickswap.exchange/swap/best/${USDT_ADDRESS}/${t.address}?chainId=${CHAIN_ID}`;
                             const depositUrl = `https://www.mexc.com/ru-RU/assets/deposit/${token}`;
