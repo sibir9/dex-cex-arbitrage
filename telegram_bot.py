@@ -6,6 +6,13 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from dotenv import load_dotenv
 
+
+from dotenv import load_dotenv
+load_dotenv(".env_bot")
+print("BOT_TOKEN:", BOT_TOKEN)
+print("FERNET_KEY:", FERNET_KEY)
+
+
 # Загружаем переменные из .env_bot
 load_dotenv(".env_bot")
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
