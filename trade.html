@@ -21,9 +21,10 @@
     <h1>Arbitrage Opportunities</h1>
 
     <div class="filters">
-        <label>Минимальный спред (%): <input type="number" id="minSpread" value="0" step="0.01"></label>
-        <label>Минимальный Lifetime (мин): <input type="number" id="minLifetime" value="0" step="1"></label>
+        <label>Минимальный спред (%): <input type="number" id="minSpread" value="0.01" step="0.01"></label>
+        <label>Минимальный Lifetime (мин): <input type="number" id="minLifetime" value="1" step="1"></label>
         <button onclick="loadTrades()">Применить фильтр</button>
+        <button onclick="resetFilters()">Сбросить фильтр</button>
     </div>
 
     <table>
@@ -70,7 +71,7 @@
                             const seconds = ttlSeconds % 60;
                             const ttlDisplay = `${minutes}:${seconds.toString().padStart(2,'0')}`;
 
-                            // Применяем фильтр
+                            // Фильтры
                             if (spread < minSpread) continue;
                             if (minutes < minLifetime) continue;
 
@@ -128,6 +129,12 @@
             notif.style.zIndex = '9999';
             document.body.appendChild(notif);
             setTimeout(() => notif.remove(), 2000);
+        }
+
+        function resetFilters() {
+            document.getElementById("minSpread").value = 0.01;
+            document.getElementById("minLifetime").value = 1;
+            loadTrades();
         }
 
         loadTrades();
