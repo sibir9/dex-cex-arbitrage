@@ -4,24 +4,22 @@ import sqlite3
 from cryptography.fernet import Fernet
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
-from aiogram.types import Message
 
-# ---- Настройки ----
+# Загружаем токен и ключ шифрования из .env_bot
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-FERNET_KEY = os.getenv("FERNET_KEY").encode()  # Должен быть 32 байта в base64
+FERNET_KEY = os.getenv("FERNET_KEY")
 fernet = Fernet(FERNET_KEY)
 
-DB_PATH = "telegram_users.db"
-
-# ---- Бот и диспетчер ----
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
 
-# ---- SQLite ----
+# --- Работа с SQLite ---
+DB_PATH = "users.db"
+
 def init_db():
     conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("""
+    cursor = conn.cursor()
+    cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             chat_hash TEXT UNIQUE
@@ -31,47 +29,62 @@ def init_db():
     conn.close()
 
 def add_user(chat_id: int):
-    """Хешируем chat_id и сохраняем в базе, если его там нет."""
-    chat_hash = fernet.encrypt(str(chat_id).encode()).decode()
     conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("INSERT OR IGNORE INTO users (chat_hash) VALUES (?)", (chat_hash,))
-    conn.commit()
-    conn.close()
+    cursor = conn.cursor()
+    chat_hash = fernet.encrypt(str(chat_id).encode()).decode()
+    try:
+        cursor.execute("INSERT OR IGNORE INTO users (chat_hash) VALUES (?)", (chat_hash,))
+        conn.commit()
+    except Exception as e:
+        print("DB Error:", e)
+    finally:
+        conn.close()
 
 def get_all_users():
-    """Возвращает список всех chat_id для рассылки (расшифрованные)."""
     conn = sqlite3.connect(DB_PATH)
-    c = conn.cursor()
-    c.execute("SELECT chat_hash FROM users")
-    rows = c.fetchall()
+    cursor = conn.cursor()
+    cursor.execute("SELECT chat_hash FROM users")
+    rows = cursor.fetchall()
     conn.close()
-    return [int(fernet.decrypt(row[0].encode()).decode()) for row in rows]
+    return [fernet.decrypt(row[0].encode()).decode() for row in rows]
 
-# ---- Команды бота ----
+# --- Обработчики команд ---
 @dp.message(Command("start"))
-async def cmd_start(message: Message):
+async def cmd_start(message: types.Message):
     add_user(message.chat.id)
-    await message.answer("Привет! Ты подписался на уведомления о арбитраже.")
+    await message.answer(
+        "Привет! Ты подписан на уведомления арбитража.\n"
+        "Чтобы получать уведомления о новых спредах, бот должен быть активен."
+    )
 
-# ---- Уведомления ----
-async def send_alert(token_name: str, spread: float):
-    """Пример функции рассылки уведомлений всем пользователям."""
+@dp.message(Command("users"))
+async def cmd_users(message: types.Message):
+    users = get_all_users()
+    await message.answer(f"Зарегистрированных пользователей: {len(users)}")
+
+# --- Отправка уведомлений ---
+async def notify_users(text: str):
     users = get_all_users()
     for chat_id in users:
         try:
-            await bot.send_message(
-                chat_id,
-                f"Арбитраж: {token_name}\nСпред: {spread:.2f}%"
-            )
+            await bot.send_message(chat_id, text)
         except Exception as e:
-            print(f"Не удалось отправить сообщение {chat_id}: {e}")
+            print(f"Ошибка отправки уведомления {chat_id}: {e}")
 
-# ---- Основной запуск ----
+# --- Тестовая функция для демонстрации ---
+async def test_notification():
+    while True:
+        await asyncio.sleep(60)  # каждые 60 секунд
+        await notify_users("Пример уведомления о спредах!")
+
+# --- Основной запуск ---
 async def main():
     init_db()
-    print("Бот запущен...")
-    await dp.start_polling(bot)
+    # Запускаем пуллинг и периодические уведомления параллельно
+    await asyncio.gather(
+        dp.start_polling(bot),
+        test_notification()
+    )
 
 if __name__ == "__main__":
     asyncio.run(main())
