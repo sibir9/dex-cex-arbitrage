@@ -6,13 +6,18 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from dotenv import load_dotenv
 
-# Сначала загружаем .env_bot
+# Загружаем .env_bot из текущей директории
 load_dotenv(".env_bot")
 
-# Потом получаем переменные
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-FERNET_KEY = os.getenv("FERNET_KEY").encode()  # Fernet требует bytes
+FERNET_KEY = os.getenv("FERNET_KEY")
 
+# Проверка, что переменные подгрузились
+if not BOT_TOKEN or not FERNET_KEY:
+    raise RuntimeError(".env_bot не загружен или переменные отсутствуют!")
+
+# Fernet требует bytes
+FERNET_KEY = FERNET_KEY.encode()
 fernet = Fernet(FERNET_KEY)
 
 bot = Bot(token=BOT_TOKEN)
