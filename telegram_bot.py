@@ -6,18 +6,16 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from dotenv import load_dotenv
 
-# Загружаем .env_bot из текущей директории
-load_dotenv(".env_bot")
+# --- Загружаем .env_bot ---
+load_dotenv(".env_bot")  # путь к файлу с токеном и ключом Fernet
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 FERNET_KEY = os.getenv("FERNET_KEY")
 
-# Проверка, что переменные подгрузились
-if not BOT_TOKEN or not FERNET_KEY:
+if BOT_TOKEN is None or FERNET_KEY is None:
     raise RuntimeError(".env_bot не загружен или переменные отсутствуют!")
 
-# Fernet требует bytes
-FERNET_KEY = FERNET_KEY.encode()
+FERNET_KEY = FERNET_KEY.encode()  # Fernet требует bytes
 fernet = Fernet(FERNET_KEY)
 
 bot = Bot(token=BOT_TOKEN)
@@ -95,8 +93,15 @@ async def test_notification():
 async def main():
     init_db()
     
-    # Регистрируем команды
+    # Регистрируем команды для aiogram 3.x
     dp.message.register(cmd_start, Command(commands=["start"]))
     dp.message.register(cmd_users, Command(commands=["users"]))
     
-    #
+    # Запускаем пуллинг и периодические уведомления параллельно
+    await asyncio.gather(
+        dp.start_polling(bot),
+        test_notification()
+    )
+
+if __name__ == "__main__":
+    asyncio.run(main())
