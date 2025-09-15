@@ -9,38 +9,33 @@
         th, td { border: 1px solid #444; padding: 10px; }
         th { background: #1e1e1e; }
         .up { color: #4caf50; font-weight: bold; }
-        .down { color: #f44336; font-weight: bold; }
+        .clickable { cursor: pointer; text-decoration: underline; }
         button { padding: 5px 10px; background: #4caf50; color: #fff; border: none; border-radius: 4px; cursor: pointer; }
         button:hover { background: #45a049; }
-        .clickable { cursor: pointer; color: #4caf50; font-weight: bold; }
-        .clickable:hover { text-decoration: underline; }
-
-        /* стиль уведомления */
         #toast {
             visibility: hidden;
             min-width: 200px;
-            margin-left: -100px;
             background-color: #333;
             color: #fff;
             text-align: center;
-            border-radius: 8px;
-            padding: 12px;
+            border-radius: 5px;
+            padding: 10px;
             position: fixed;
-            left: 50%;
+            z-index: 1;
             bottom: 30px;
-            z-index: 9999;
-            font-size: 14px;
-            opacity: 0;
-            transition: opacity 0.5s, visibility 0.5s;
+            left: 50%;
+            transform: translateX(-50%);
         }
         #toast.show {
             visibility: visible;
-            opacity: 1;
+            animation: fadein 0.5s, fadeout 0.5s 2s;
         }
+        @keyframes fadein { from { bottom: 0; opacity: 0; } to { bottom: 30px; opacity: 1; } }
+        @keyframes fadeout { from { bottom: 30px; opacity: 1; } to { bottom: 0; opacity: 0; } }
     </style>
 </head>
 <body>
-    <h1>Arbitrage Opportunities (Spread > 0)</h1>
+    <h1>Arbitrage Opportunities (MEXC > ODOS)</h1>
     <table>
         <thead>
             <tr>
@@ -48,6 +43,7 @@
                 <th>ODOS Price (USDT)</th>
                 <th>MEXC Price (USDT)</th>
                 <th>Spread (%)</th>
+                <th>Age (s)</th>
                 <th>Error</th>
                 <th>Action</th>
             </tr>
@@ -55,34 +51,39 @@
         <tbody id="trade-body"></tbody>
     </table>
 
-    <!-- уведомление -->
     <div id="toast">Адрес контракта скопирован</div>
 
     <script>
+        let lastPrices = {};
+
         async function loadTrades() {
             try {
                 const resp = await fetch("/price/all");
                 const data = await resp.json();
                 const tbody = document.getElementById("trade-body");
                 tbody.innerHTML = "";
+                const now = Date.now() / 1000;
 
                 for (const token in data) {
                     const t = data[token];
+                    const odos = t.odos_price_usdt;
+                    const mexc = t.mexc_price_usdt;
 
-                    if (t.odos_price_usdt && t.mexc_price_usdt) {
-                        const spread = ((t.mexc_price_usdt - t.odos_price_usdt) / t.odos_price_usdt) * 100;
+                    if (odos && mexc && mexc > odos) {
+                        const spread = ((mexc - odos) / odos) * 100;
 
-                        if (spread > 0) {
-                            const spreadHTML = `<span class="up">${spread.toFixed(2)}</span>`;
-                            tbody.innerHTML += `<tr>
-                                <td class="clickable" onclick="copyAddress('${t.address}')">${token}</td>
-                                <td>${t.odos_price_usdt.toFixed(6)}</td>
-                                <td>${t.mexc_price_usdt.toFixed(6)}</td>
-                                <td>${spreadHTML}</td>
-                                <td>${t.error || ""}</td>
-                                <td><button onclick="trade('${token}')">Торговать</button></td>
-                            </tr>`;
-                        }
+                        const age = lastPrices[token] ? (now - lastPrices[token]) : 0;
+                        lastPrices[token] = now;
+
+                        tbody.innerHTML += `<tr>
+                            <td class="clickable" onclick="copyAddress('${t.address}')">${token}</td>
+                            <td>${odos.toFixed(6)}</td>
+                            <td>${mexc.toFixed(6)}</td>
+                            <td><span class="up">${spread.toFixed(2)}</span></td>
+                            <td>${Math.floor(age)}</td>
+                            <td>${t.error || ""}</td>
+                            <td><button onclick="trade('${token}')">Торговать</button></td>
+                        </tr>`;
                     }
                 }
             } catch (e) {
@@ -92,24 +93,21 @@
 
         function trade(token) {
             alert("Запуск торговли для токена: " + token);
+            // Реальная логика сделки через API будет здесь
         }
 
         function copyAddress(address) {
             navigator.clipboard.writeText(address).then(() => {
-                showToast();
+                const toast = document.getElementById("toast");
+                toast.className = "show";
+                setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 2500);
             }).catch(err => {
                 console.error("Ошибка копирования:", err);
             });
         }
 
-        function showToast() {
-            const toast = document.getElementById("toast");
-            toast.className = "show";
-            setTimeout(() => { toast.className = toast.className.replace("show", ""); }, 2000);
-        }
-
         loadTrades();
-        setInterval(loadTrades, 10000);
+        setInterval(loadTrades, 10000); // обновление каждые 10 секунд
     </script>
 </body>
 </html>
