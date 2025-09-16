@@ -1,22 +1,22 @@
 import os
 import asyncio
 import sqlite3
+import aiohttp
 from cryptography.fernet import Fernet
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
 from dotenv import load_dotenv
 
-# --- Загружаем .env_bot ---
-load_dotenv(".env_bot")  # путь к файлу с токеном и ключом Fernet
+# Загружаем .env_bot
+load_dotenv(".env_bot")
 
 BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 FERNET_KEY = os.getenv("FERNET_KEY")
 
 if BOT_TOKEN is None or FERNET_KEY is None:
-    raise RuntimeError(".env_bot не загружен или переменные отсутствуют!")
+    raise RuntimeError("Не найдены TELEGRAM_BOT_TOKEN или FERNET_KEY в .env_bot")
 
-FERNET_KEY = FERNET_KEY.encode()  # Fernet требует bytes
-fernet = Fernet(FERNET_KEY)
+fernet = Fernet(FERNET_KEY.encode())
 
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
@@ -30,7 +30,8 @@ def init_db():
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            chat_hash TEXT UNIQUE
+            chat_hash TEXT UNIQUE,
+            min_spread REAL DEFAULT 0.5
         )
     """)
     conn.commit()
@@ -41,7 +42,9 @@ def add_user(chat_id: int):
     cursor = conn.cursor()
     chat_hash = fernet.encrypt(str(chat_id).encode()).decode()
     try:
-        cursor.execute("INSERT OR IGNORE INTO users (chat_hash) VALUES (?)", (chat_hash,))
+        cursor.execute("""
+            INSERT OR IGNORE INTO users (chat_hash, min_spread) VALUES (?, ?)
+        """, (chat_hash, 0.5))
         conn.commit()
     except Exception as e:
         print("DB Error:", e)
@@ -51,56 +54,106 @@ def add_user(chat_id: int):
 def get_all_users():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
-    cursor.execute("SELECT chat_hash FROM users")
+    cursor.execute("SELECT chat_hash, min_spread FROM users")
     rows = cursor.fetchall()
     conn.close()
     users = []
     for row in rows:
         try:
-            users.append(fernet.decrypt(row[0].encode()).decode())
+            chat_id = int(fernet.decrypt(row[0].encode()).decode())
+            users.append((chat_id, row[1]))
         except Exception:
             continue
     return users
 
+def update_user_spread(chat_id: int, min_spread: float):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    chat_hash = fernet.encrypt(str(chat_id).encode()).decode()
+    cursor.execute("""
+        UPDATE users SET min_spread = ? WHERE chat_hash = ?
+    """, (min_spread, chat_hash))
+    conn.commit()
+    conn.close()
+
+# --- API с ценами ---
+API_URL = "http://5.129.209.25:8080/price/all"
+
+async def fetch_spreads():
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(API_URL) as resp:
+                if resp.status == 200:
+                    return await resp.json()
+                else:
+                    print(f"Ошибка API: {resp.status}")
+                    return None
+    except Exception as e:
+        print("Ошибка fetch_spreads:", e)
+        return None
+
 # --- Обработчики команд ---
 async def cmd_start(message: types.Message):
     add_user(message.chat.id)
-    await message.answer(
-        "Привет! Ты подписан на уведомления арбитража.\n"
-        "Чтобы получать уведомления о новых спредах, бот должен быть активен."
-    )
+    await message.answer("✅ Ты подписан на уведомления об арбитраже!\n"
+                         "Минимальный спред по умолчанию: 0.5%\n"
+                         "Можно изменить: /setspread 1.2")
 
 async def cmd_users(message: types.Message):
     users = get_all_users()
-    await message.answer(f"Зарегистрированных пользователей: {len(users)}")
+    txt = "👥 Пользователи:\n"
+    for uid, spread in users:
+        txt += f"- {uid}: {spread}%\n"
+    await message.answer(txt)
+
+async def cmd_setspread(message: types.Message):
+    try:
+        parts = message.text.split()
+        if len(parts) != 2:
+            await message.answer("❌ Используй формат: /setspread 1.0")
+            return
+        min_spread = float(parts[1])
+        update_user_spread(message.chat.id, min_spread)
+        await message.answer(f"✅ Минимальный спред установлен: {min_spread}%")
+    except Exception as e:
+        await message.answer(f"Ошибка: {e}")
 
 # --- Отправка уведомлений ---
-async def notify_users(text: str):
-    users = get_all_users()
-    for chat_id in users:
-        try:
-            await bot.send_message(chat_id, text)
-        except Exception as e:
-            print(f"Ошибка отправки уведомления {chat_id}: {e}")
+async def notify_user(chat_id: int, text: str):
+    try:
+        await bot.send_message(chat_id, text)
+    except Exception as e:
+        print(f"Ошибка отправки {chat_id}: {e}")
 
-# --- Тестовая функция для демонстрации ---
-async def test_notification():
+# --- Цикл уведомлений ---
+async def notification_loop():
     while True:
-        await asyncio.sleep(60)  # каждые 60 секунд
-        await notify_users("Пример уведомления о спредах!")
+        data = await fetch_spreads()
+        if data:
+            users = get_all_users()
+            for token, t in data.items():
+                if t.get("odos_price_usdt") and t.get("mexc_price_usdt"):
+                    spread = ((t["mexc_price_usdt"] - t["odos_price_usdt"]) / t["odos_price_usdt"]) * 100
+                    if spread > 0:
+                        msg = (f"🪙 {token}\n"
+                               f"DEX: {t['odos_price_usdt']:.6f} USDT\n"
+                               f"CEX: {t['mexc_price_usdt']:.6f} USDT\n"
+                               f"Spread: {spread:.2f}%")
+                        for chat_id, min_spread in users:
+                            if spread >= min_spread:
+                                await notify_user(chat_id, msg)
+        await asyncio.sleep(60)  # проверка раз в минуту
 
 # --- Основной запуск ---
 async def main():
     init_db()
-    
-    # Регистрируем команды для aiogram 3.x
     dp.message.register(cmd_start, Command(commands=["start"]))
     dp.message.register(cmd_users, Command(commands=["users"]))
-    
-    # Запускаем пуллинг и периодические уведомления параллельно
+    dp.message.register(cmd_setspread, Command(commands=["setspread"]))
+
     await asyncio.gather(
         dp.start_polling(bot),
-        test_notification()
+        notification_loop()
     )
 
 if __name__ == "__main__":
