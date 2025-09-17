@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>SUT Transactions - Last Hour</title>
+    <style>
+        body { font-family: Arial, sans-serif; background: #121212; color: #eee; text-align: center; }
+        table { margin: 30px auto; border-collapse: collapse; width: 90%; }
+        th, td { border: 1px solid #444; padding: 10px; }
+        th { background: #1e1e1e; }
+        tr:nth-child(even) { background: #1a1a1a; }
+        tr:hover { background: #333; }
+    </style>
+</head>
+<body>
+    <h1>SUT Transactions Last Hour</h1>
+    <table>
+        <thead>
+            <tr>
+                <th>Hash</th>
+                <th>From</th>
+                <th>To</th>
+                <th>Value (SUT)</th>
+                <th>Time (UTC)</th>
+            </tr>
+        </thead>
+        <tbody id="tx-body">
+            <tr><td colspan="5">Loading...</td></tr>
+        </tbody>
+    </table>
+
+    <script>
+        async function fetchTransactions() {
+            try {
+                const resp = await fetch("/sut_tx"); // API endpoint на сервере
+                const data = await resp.json();
+                const tbody = document.getElementById("tx-body");
+                tbody.innerHTML = "";
+
+                if(data.length === 0) {
+                    tbody.innerHTML = "<tr><td colspan='5'>No transactions in the last hour</td></tr>";
+                    return;
+                }
+
+                data.forEach(tx => {
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><a href="https://polygonscan.com/tx/${tx.hash}" target="_blank">${tx.hash.slice(0,10)}...</a></td>
+                            <td>${tx.from}</td>
+                            <td>${tx.to}</td>
+                            <td>${tx.value}</td>
+                            <td>${tx.time}</td>
+                        </tr>
+                    `;
+                });
+            } catch (e) {
+                console.error("Failed to fetch transactions:", e);
+            }
+        }
+
+        fetchTransactions();
+        setInterval(fetchTransactions, 60000); // обновление каждую минуту
+    </script>
+</body>
+</html>
