@@ -3,6 +3,9 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 import subprocess
 from dex_cex_polygon import get_all_prices
+from PolygonScan import router as polygon_router
+
+
 
 
 app = FastAPI()
@@ -62,6 +65,25 @@ def trade_page():
             "Expires": "0"
         }
     )
+
+
+
+# === Отдаём Polygonscan.html ===
+@app.get("/Polygonscan")
+def trade_page():
+    return FileResponse(
+        "Polygonscan.html",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
+
+
+
+app.include_router(polygon_router)
+
 
 
 # === API для получения цен всех токенов ===
