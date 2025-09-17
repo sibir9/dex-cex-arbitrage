@@ -17,16 +17,18 @@
     <h1>Последние транзакции SUT</h1>
     <p id="total">Загрузка...</p>
     <table>
-        <thead>
-            <tr>
-                <th>Hash</th>
-                <th>From</th>
-                <th>To</th>
-                <th>Value (SUT)</th>
-                <th>Time (UTC)</th>
-            </tr>
-        </thead>
-        <tbody id="tx-body"></tbody>
+      <thead>
+    <tr>
+        <th>Hash</th>
+        <th>From</th>
+        <th>To</th>
+        <th>Value (SUT)</th>
+        <th>Time (UTC)</th>
+        <th>CEX</th> <!-- новая колонка -->
+    </tr>
+</thead>
+<tbody id="tx-body"></tbody>
+
     </table>
 
     <script>
@@ -42,13 +44,15 @@
 
                 data.transactions.forEach(tx => {
                     const row = document.createElement("tr");
-                    row.innerHTML = `
-                        <td><a href="https://polygonscan.com/tx/${tx.hash}" target="_blank">${tx.hash.substring(0, 10)}...</a></td>
-                        <td>${tx.from}</td>
-                        <td>${tx.to}</td>
-                        <td class="up">${tx.value}</td>
-                        <td>${tx.time}</td>
-                    `;
+                   row.innerHTML = `
+    <td><a href="https://polygonscan.com/tx/${tx.hash}" target="_blank">${tx.hash.substring(0, 10)}...</a></td>
+    <td>${tx.from}</td>
+    <td>${tx.to}</td>
+    <td class="up">${tx.value}</td>
+    <td>${tx.time}</td>
+    <td>${tx.cex}</td>
+`;
+
                     tbody.appendChild(row);
                 });
 
