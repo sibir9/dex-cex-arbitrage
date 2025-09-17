@@ -68,11 +68,11 @@ def trade_page():
 
 
 
-# === Отдаём Polygonscan.html ===
-@app.get("/Polygonscan")
+# === Отдаём polygonscan.html ===
+@app.get("/polygonscan")
 def trade_page():
     return FileResponse(
-        "Polygonscan.html",
+        "polygonscan.html",
         headers={
             "Cache-Control": "no-cache, no-store, must-revalidate",
             "Pragma": "no-cache",
