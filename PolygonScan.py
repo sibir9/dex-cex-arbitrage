@@ -1,5 +1,6 @@
 # PolygonScan.py
 from fastapi import APIRouter
+from fastapi.responses import FileResponse, JSONResponse
 import requests
 import time
 from datetime import datetime
@@ -10,13 +11,27 @@ API_KEY = "P1WGRYNN24JQQGR6EH9PWWDRJQWQVBR9AK"
 ADDRESS = "0x6cc2b9092a8a46fb8e07b2649d6d8f4845e94e4b"
 SUT_CONTRACT = "0x98965474ecbec2f532f1f780ee37b0b05f77ca55"
 
+
+@router.get("/Polygonscan")
+def polygonscan_page():
+    return FileResponse(
+        "Polygonscan.html",
+        headers={
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+    )
+
+
 @router.get("/Polygonscan/data")
-def get_sut_transactions():
+def polygonscan_data():
     url = (
         "https://api.etherscan.io/v2/api"
         f"?chainid=137&module=account&action=tokentx"
         f"&address={ADDRESS}&sort=desc&apikey={API_KEY}"
     )
+
     resp = requests.get(url).json()
     txs = resp.get("result", [])
 
@@ -40,4 +55,7 @@ def get_sut_transactions():
                     "time": datetime.utcfromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
                 })
 
-    return {"total_sut": total_sut, "transactions": sut_txs}
+    return JSONResponse({
+        "total_sut": total_sut,
+        "transactions": sut_txs
+    })
