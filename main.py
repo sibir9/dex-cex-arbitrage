@@ -70,7 +70,7 @@ def trade_page():
 
 # === Отдаём polygonscan.html ===
 @app.get("/polygonscan")
-def trade_page():
+def polygonscan_page():
     return FileResponse(
         "polygonscan.html",
         headers={
