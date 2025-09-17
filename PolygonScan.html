@@ -2,27 +2,27 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>SUT Transactions</title>
+    <title>Polygonscan SUT Transactions</title>
     <style>
         body { font-family: Arial, sans-serif; background: #121212; color: #eee; text-align: center; }
-        table { margin: 30px auto; border-collapse: collapse; width: 90%; }
+        table { margin: 30px auto; border-collapse: collapse; width: 95%; }
         th, td { border: 1px solid #444; padding: 10px; }
         th { background: #1e1e1e; }
         tr:nth-child(even) { background: #1a1a1a; }
         .up { color: #4caf50; font-weight: bold; }
+        .down { color: #f44336; font-weight: bold; }
     </style>
 </head>
 <body>
-    <h1>SUT Transactions Last Hour</h1>
-    <p>Total SUT transferred: <span id="total_sut">0</span></p>
-
+    <h1>Последние транзакции SUT</h1>
+    <p id="total">Загрузка...</p>
     <table>
         <thead>
             <tr>
-                <th>Tx Hash</th>
+                <th>Hash</th>
                 <th>From</th>
                 <th>To</th>
-                <th>Amount</th>
+                <th>Value (SUT)</th>
                 <th>Time (UTC)</th>
             </tr>
         </thead>
@@ -32,19 +32,18 @@
     <script>
         async function fetchData() {
             try {
-                const resp = await fetch("/Polygonscan/data");
-                const data = await resp.json();
-
-                document.getElementById("total_sut").textContent = data.total_sut;
+                const res = await fetch("/Polygonscan/data");
+                const data = await res.json();
+                
+                document.getElementById("total").textContent = `Всего переведено за последний час: ${data.total_sut} SUT`;
 
                 const tbody = document.getElementById("tx-body");
                 tbody.innerHTML = "";
 
                 data.transactions.forEach(tx => {
                     const row = document.createElement("tr");
-
                     row.innerHTML = `
-                        <td><a href="https://polygonscan.com/tx/${tx.hash}" target="_blank">${tx.hash.slice(0,10)}...</a></td>
+                        <td><a href="https://polygonscan.com/tx/${tx.hash}" target="_blank">${tx.hash.substring(0, 10)}...</a></td>
                         <td>${tx.from}</td>
                         <td>${tx.to}</td>
                         <td class="up">${tx.value}</td>
@@ -52,13 +51,15 @@
                     `;
                     tbody.appendChild(row);
                 });
-            } catch (e) {
-                console.error("Failed to fetch data:", e);
+
+            } catch (err) {
+                document.getElementById("total").textContent = "Ошибка загрузки данных";
+                console.error(err);
             }
         }
 
-        fetchData(); // загрузка сразу
-        setInterval(fetchData, 10000); // обновление каждые 10 секунд
+        fetchData();
+        setInterval(fetchData, 60000); // обновлять каждую минуту
     </script>
 </body>
 </html>
