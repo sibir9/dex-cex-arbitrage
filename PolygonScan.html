@@ -32,7 +32,7 @@
     <script>
         async function fetchData() {
             try {
-                const res = await fetch("/Polygonscan/data");
+                const res = await fetch("/polygonscan/data");
                 const data = await res.json();
                 
                 document.getElementById("total").textContent = `Всего переведено за последний час: ${data.total_sut} SUT`;
@@ -43,7 +43,7 @@
                 data.transactions.forEach(tx => {
                     const row = document.createElement("tr");
                     row.innerHTML = `
-                        <td><a href="https://polygonscan.com/tx/${tx.hash}" target="_blank">${tx.hash.substring(0, 10)}...</a></td>
+                        <td><a href="https://ygonscan.com/tx/${tx.hash}" target="_blank">${tx.hash.substring(0, 10)}...</a></td>
                         <td>${tx.from}</td>
                         <td>${tx.to}</td>
                         <td class="up">${tx.value}</td>
