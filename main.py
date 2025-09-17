@@ -82,6 +82,7 @@ def trade_page():
 
 
 
+# Подключаем роутер PolygonScan
 app.include_router(polygon_router)
 
 
