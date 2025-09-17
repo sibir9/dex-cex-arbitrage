@@ -2,64 +2,63 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>SUT Transactions - Last Hour</title>
+    <title>SUT Transactions</title>
     <style>
         body { font-family: Arial, sans-serif; background: #121212; color: #eee; text-align: center; }
         table { margin: 30px auto; border-collapse: collapse; width: 90%; }
         th, td { border: 1px solid #444; padding: 10px; }
         th { background: #1e1e1e; }
         tr:nth-child(even) { background: #1a1a1a; }
-        tr:hover { background: #333; }
+        .up { color: #4caf50; font-weight: bold; }
     </style>
 </head>
 <body>
     <h1>SUT Transactions Last Hour</h1>
+    <p>Total SUT transferred: <span id="total_sut">0</span></p>
+
     <table>
         <thead>
             <tr>
-                <th>Hash</th>
+                <th>Tx Hash</th>
                 <th>From</th>
                 <th>To</th>
-                <th>Value (SUT)</th>
+                <th>Amount</th>
                 <th>Time (UTC)</th>
             </tr>
         </thead>
-        <tbody id="tx-body">
-            <tr><td colspan="5">Loading...</td></tr>
-        </tbody>
+        <tbody id="tx-body"></tbody>
     </table>
 
     <script>
-        async function fetchTransactions() {
+        async function fetchData() {
             try {
-                const resp = await fetch("/sut_tx"); // API endpoint на сервере
+                const resp = await fetch("/Polygonscan/data");
                 const data = await resp.json();
+
+                document.getElementById("total_sut").textContent = data.total_sut;
+
                 const tbody = document.getElementById("tx-body");
                 tbody.innerHTML = "";
 
-                if(data.length === 0) {
-                    tbody.innerHTML = "<tr><td colspan='5'>No transactions in the last hour</td></tr>";
-                    return;
-                }
+                data.transactions.forEach(tx => {
+                    const row = document.createElement("tr");
 
-                data.forEach(tx => {
-                    tbody.innerHTML += `
-                        <tr>
-                            <td><a href="https://polygonscan.com/tx/${tx.hash}" target="_blank">${tx.hash.slice(0,10)}...</a></td>
-                            <td>${tx.from}</td>
-                            <td>${tx.to}</td>
-                            <td>${tx.value}</td>
-                            <td>${tx.time}</td>
-                        </tr>
+                    row.innerHTML = `
+                        <td><a href="https://polygonscan.com/tx/${tx.hash}" target="_blank">${tx.hash.slice(0,10)}...</a></td>
+                        <td>${tx.from}</td>
+                        <td>${tx.to}</td>
+                        <td class="up">${tx.value}</td>
+                        <td>${tx.time}</td>
                     `;
+                    tbody.appendChild(row);
                 });
             } catch (e) {
-                console.error("Failed to fetch transactions:", e);
+                console.error("Failed to fetch data:", e);
             }
         }
 
-        fetchTransactions();
-        setInterval(fetchTransactions, 60000); // обновление каждую минуту
+        fetchData(); // загрузка сразу
+        setInterval(fetchData, 10000); // обновление каждые 10 секунд
     </script>
 </body>
 </html>
