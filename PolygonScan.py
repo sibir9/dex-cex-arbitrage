@@ -1,105 +1,101 @@
-# PolygonScan.py
 from fastapi import APIRouter
-import requests
-import time
+from fastapi.responses import JSONResponse
+import requests, time
 from datetime import datetime
-from web3 import Web3
 
 router = APIRouter()
 
-# Настройки
 API_KEY = "P1WGRYNN24JQQGR6EH9PWWDRJQWQVBR9AK"
-SUT_CONTRACT_RAW = "0x98965474ecbec2f532f1f780ee37b0b05f77ca55"
+SUT_CONTRACT = "0x98965474ecbec2f532f1f780ee37b0b05f77ca55"
 
-# Web3
-w3 = Web3(Web3.HTTPProvider("https://polygon-rpc.com"))
-SUT_CONTRACT = Web3.to_checksum_address(SUT_CONTRACT_RAW)
-
-# ABI токена (минимально необходимое для totalSupply и decimals)
-ABI = [
-    {
-        "constant": True,
-        "inputs": [],
-        "name": "totalSupply",
-        "outputs": [{"name": "", "type": "uint256"}],
-        "type": "function"
-    },
-    {
-        "constant": True,
-        "inputs": [],
-        "name": "decimals",
-        "outputs": [{"name": "", "type": "uint8"}],
-        "type": "function"
-    }
-]
-
-contract = w3.eth.contract(address=SUT_CONTRACT, abi=ABI)
-
-# CEX адреса (пример)
-CEX_ADDRESSES = {
-    "Binance": ["0x..."],  # добавь реальные адреса
-    "Bybit": ["0x..."],
-    "MEXC": ["0x..."]
-}
-
-# Получение цены SUT в USDT с MEXC
-def get_price_usdt():
+def get_sut_price():
     try:
-        url = "https://www.mexc.com/api/v3/ticker/price?symbol=SUTUSDT"
-        resp = requests.get(url, timeout=5).json()
-        return float(resp["price"])
-    except Exception:
+        url = "https://api.mexc.com/api/v3/ticker/price"
+        params = {"symbol": "SUTUSDT"}
+        resp = requests.get(url, params=params, timeout=10).json()
+        price = resp.get("price")
+        if price is None:
+            raise ValueError("price not in response")
+        return float(price)
+    except Exception as e:
+        print("Error fetching SUT price from MEXC:", e)
         return 0.0
 
-@router.get("/polygonscan/data")
-def get_sut_transactions():
+def get_total_supply():
     try:
+        # Эндпоинт Etherscan / stats
+        url = (
+            f"https://api.etherscan.io/api"
+            f"?module=stats&action=tokensupply&contractaddress={SUT_CONTRACT}&apikey={API_KEY}"
+        )
+        resp = requests.get(url, timeout=10).json()
+        supply_raw = resp.get("result", None)
+        if supply_raw is None:
+            raise ValueError("Supply not found")
+        # Нужно узнать decimals токена
+        # Например запрос Etherscan: module=token (или другой модуль), или через другую службу
+        # Здесь допущение: decimals = 18, если точно нет инфо
+        decimals = 18
+        total_supply = int(supply_raw) / (10 ** decimals)
+        return total_supply
+    except Exception as e:
+        print("Error fetching total supply:", e)
+        return 0.0
+
+@router.get("/Polygonscan/data")
+def polygonscan_data():
+    try:
+        price_usdt = get_sut_price()
+        total_supply = get_total_supply()
+
         url = (
             "https://api.etherscan.io/v2/api"
             f"?chainid=137&module=account&action=tokentx"
-            f"&address={SUT_CONTRACT}&sort=desc&apikey={API_KEY}"
+            f"&contractaddress={SUT_CONTRACT}&sort=desc&apikey={API_KEY}"
         )
         resp = requests.get(url, timeout=10).json()
         txs = resp.get("result", [])
+
         now = int(time.time())
         one_hour_ago = now - 3600
 
-        total_sut = 0
+        total_sut = 0.0
         sut_txs = []
 
         for tx in txs:
-            if tx["contractAddress"].lower() == SUT_CONTRACT_RAW.lower():
-                ts = int(tx["timeStamp"])
-                if ts >= one_hour_ago:
-                    value = int(tx["value"]) / (10 ** contract.functions.decimals().call())
-                    total_sut += value
-                    is_cex = any(tx["to"].lower() in [addr.lower() for addrs in CEX_ADDRESSES.values() for addr in addrs])
-                    sut_txs.append({
-                        "hash": tx["hash"],
-                        "from": tx["from"],
-                        "to": tx["to"],
-                        "value": value,
-                        "time": datetime.utcfromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S"),
-                        "cex": is_cex
-                    })
+            ts = int(tx.get("timeStamp", 0))
+            if ts >= one_hour_ago:
+                value_raw = int(tx.get("value", 0))
+                token_decimal = int(tx.get("tokenDecimal", 18))
+                value = value_raw / (10 ** token_decimal)
+                total_sut += value
+                sut_txs.append({
+                    "hash": tx.get("hash"),
+                    "from": tx.get("from"),
+                    "to": tx.get("to"),
+                    "value": value,
+                    "time": datetime.utcfromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
+                })
 
-        price_usdt = get_price_usdt()
         total_usdt = total_sut * price_usdt
+        percent_of_supply = (total_sut / total_supply * 100) if total_supply > 0 else 0.0
+        market_cap = total_supply * price_usdt
 
-        total_supply = contract.functions.totalSupply().call() / (10 ** contract.functions.decimals().call())
-        percent_of_supply = (total_sut / total_supply * 100) if total_supply else 0
-        market_cap = total_supply * price_usdt if total_supply else 0
-
-        return {
+        return JSONResponse({
+            "price_usdt": price_usdt,
             "total_sut": total_sut,
             "total_usdt": total_usdt,
-            "price_usdt": price_usdt,
-            "total_supply": total_supply,
             "percent_of_supply": percent_of_supply,
             "market_cap": market_cap,
             "transactions": sut_txs
-        }
-
+        })
     except Exception as e:
-        return {"error": str(e), "total_sut": 0, "total_usdt": 0.0, "price_usdt": 0.0,
-                "total_supply": 0, "percent_of_supply": 0, "market_cap": 0, "transactions": []}
+        return JSONResponse({
+            "error": str(e),
+            "price_usdt": 0.0,
+            "total_sut": 0.0,
+            "total_usdt": 0.0,
+            "percent_of_supply": 0.0,
+            "market_cap": 0.0,
+            "transactions": []
+        })
