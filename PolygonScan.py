@@ -2,6 +2,7 @@ from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 import requests, time
 from datetime import datetime
+from web3 import Web3
 
 router = APIRouter()
 
@@ -21,26 +22,48 @@ def get_sut_price():
         print("Error fetching SUT price from MEXC:", e)
         return 0.0
 
+
+
+
+# Web3
+w3 = Web3(Web3.HTTPProvider("https://polygon-rpc.com"))
+SUT_CONTRACT_RAW = "0x98965474ecbec2f532f1f780ee37b0b05f77ca55"
+SUT_CONTRACT = Web3.to_checksum_address(SUT_CONTRACT_RAW)
+
+# ABI минимальный для totalSupply и decimals
+ABI = [
+    {
+        "constant": True,
+        "inputs": [],
+        "name": "totalSupply",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "type": "function"
+    },
+    {
+        "constant": True,
+        "inputs": [],
+        "name": "decimals",
+        "outputs": [{"name": "", "type": "uint8"}],
+        "type": "function"
+    }
+]
+
+contract = w3.eth.contract(address=SUT_CONTRACT, abi=ABI)
+
 def get_total_supply():
     try:
-        # Эндпоинт Etherscan / stats
-        url = (
-            f"https://api.etherscan.io/api"
-            f"?module=stats&action=tokensupply&contractaddress={SUT_CONTRACT}&apikey={API_KEY}"
-        )
-        resp = requests.get(url, timeout=10).json()
-        supply_raw = resp.get("result", None)
-        if supply_raw is None:
-            raise ValueError("Supply not found")
-        # Нужно узнать decimals токена
-        # Например запрос Etherscan: module=token (или другой модуль), или через другую службу
-        # Здесь допущение: decimals = 18, если точно нет инфо
-        decimals = 18
-        total_supply = int(supply_raw) / (10 ** decimals)
+        decimals = contract.functions.decimals().call()
+        total_supply = contract.functions.totalSupply().call() / (10 ** decimals)
         return total_supply
     except Exception as e:
-        print("Error fetching total supply:", e)
+        print("Error fetching total supply via Web3:", e)
         return 0.0
+
+
+
+
+
+
 
 @router.get("/Polygonscan/data")
 def polygonscan_data():
