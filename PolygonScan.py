@@ -1,17 +1,20 @@
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
-import requests, time, json, os, asyncio
+import requests, time, json, os
 from datetime import datetime
 from web3 import Web3
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 router = APIRouter()
 
-API_KEY = "P1WGRYNN24JQQGR6EH9PWWDRJQWQVBR9AK"  # Etherscan API
+API_KEY = "P1WGRYNN24JQQGR6EH9PWWDRJQWQVBR9AK"
 w3 = Web3(Web3.HTTPProvider("https://polygon-rpc.com"))
 
 ABI = [
-    {"constant": True, "inputs": [], "name": "totalSupply", "outputs": [{"name": "", "type": "uint256"}], "type": "function"},
-    {"constant": True, "inputs": [], "name": "decimals", "outputs": [{"name": "", "type": "uint8"}], "type": "function"}
+    {"constant": True, "inputs": [], "name": "totalSupply",
+     "outputs": [{"name": "", "type": "uint256"}], "type": "function"},
+    {"constant": True, "inputs": [], "name": "decimals",
+     "outputs": [{"name": "", "type": "uint8"}], "type": "function"}
 ]
 
 TOKENS_FILE = "poltokens.json"
@@ -20,15 +23,15 @@ if not os.path.exists(TOKENS_FILE):
 with open(TOKENS_FILE) as f:
     TOKENS = json.load(f)
 
-# === CACHE ===
-CACHE = {"data": {}, "summary": [], "last_update": 0}
+CACHE = {}
+CACHE_TIMESTAMP = 0
+CACHE_TTL = 60  # кэш живёт 1 минуту
 
 
 def get_price_usdt(pair: str):
     try:
         url = "https://api.mexc.com/api/v3/ticker/price"
-        params = {"symbol": pair}
-        resp = requests.get(url, params=params, timeout=20).json()
+        resp = requests.get(url, params={"symbol": pair}, timeout=5).json()
         return float(resp.get("price", 0))
     except Exception as e:
         print(f"Error fetching {pair} price:", e)
@@ -46,9 +49,9 @@ def get_total_supply(address: str):
         return 0.0
 
 
-def collect_token_data(symbol: str, address: str, pair: str, minutes: int = 30):
+def collect_token_data(symbol: str, address: str, pair: str):
     now = int(time.time())
-    start_time = now - (minutes * 60)
+    thirty_min_ago = now - 1800  # последние 30 минут
 
     # Цена
     price_usdt = get_price_usdt(pair)
@@ -60,39 +63,36 @@ def collect_token_data(symbol: str, address: str, pair: str, minutes: int = 30):
     url = (
         "https://api.etherscan.io/v2/api"
         f"?chainid=137&module=account&action=tokentx"
-        f"&contractaddress={address}&starttimestamp={start_time}&endtimestamp={now}"
-        f"&sort=desc&apikey={API_KEY}"
+        f"&contractaddress={address}&starttimestamp={thirty_min_ago}"
+        f"&endtimestamp={now}&sort=desc&apikey={API_KEY}"
     )
+
     try:
-        resp = requests.get(url, timeout=20).json()
-        if resp.get("status") != "1" or "result" not in resp:
-            print(f"No tx data for {symbol}: {resp.get('message')}")
-            txs = []
-        else:
-            txs = resp["result"]
+        resp = requests.get(url, timeout=5).json()
     except Exception as e:
-        print(f"Error fetching tx for {symbol}:", e)
-        txs = []
+        return {"symbol": symbol, "error": f"tx fetch error: {e}"}
+
+    if resp.get("status") != "1" or "result" not in resp:
+        return {"symbol": symbol, "error": resp.get("message", "no result")}
+
+    txs = resp["result"]
 
     total_amount = 0.0
     token_txs = []
 
     for tx in txs:
-        try:
-            ts = int(tx.get("timeStamp", 0))
-            value_raw = int(tx.get("value", 0))
-            decimals = int(tx.get("tokenDecimal", 18))
-            value = value_raw / (10 ** decimals)
-            total_amount += value
-            token_txs.append({
-                "hash": tx.get("hash"),
-                "from": tx.get("from"),
-                "to": tx.get("to"),
-                "value": value,
-                "time": datetime.utcfromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
-            })
-        except Exception:
-            continue
+        ts = int(tx.get("timeStamp", 0))
+        value_raw = int(tx.get("value", 0))
+        decimals = int(tx.get("tokenDecimal", 18))
+        value = value_raw / (10 ** decimals)
+        total_amount += value
+        token_txs.append({
+            "hash": tx.get("hash"),
+            "from": tx.get("from"),
+            "to": tx.get("to"),
+            "value": value,
+            "time": datetime.utcfromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
+        })
 
     total_usdt = total_amount * price_usdt
     percent_of_supply = (total_amount / total_supply * 100) if total_supply > 0 else 0.0
@@ -110,48 +110,61 @@ def collect_token_data(symbol: str, address: str, pair: str, minutes: int = 30):
     }
 
 
-async def refresh_cache():
-    while True:
-        try:
-            print("Refreshing Polygonscan cache...")
-            results = {}
-            summary = []
+def refresh_cache():
+    global CACHE, CACHE_TIMESTAMP
+    print("Refreshing cache...")
 
-            for token in TOKENS:
-                data = collect_token_data(
-                    token["symbol"], token["address"], token.get("pair", f'{token["symbol"]}USDT'), minutes=30
-                )
-                results[token["symbol"]] = data
-                summary.append({
-                    "symbol": data["symbol"],
-                    "price_usdt": data["price_usdt"],
-                    "total_transferred": data["total_transferred"],
-                    "total_usdt": data["total_usdt"],
-                    "percent_of_supply": data["percent_of_supply"],
-                    "market_cap": data["market_cap"]
-                })
+    results = {}
 
-            CACHE["data"] = results
-            CACHE["summary"] = summary
-            CACHE["last_update"] = int(time.time())
-            print("Polygonscan cache updated.")
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        future_to_token = {
+            executor.submit(
+                collect_token_data,
+                token["symbol"],
+                token["address"],
+                token.get("pair", f'{token["symbol"]}USDT')
+            ): token for token in TOKENS
+        }
 
-        except Exception as e:
-            print("Error refreshing cache:", e)
+        for future in as_completed(future_to_token):
+            token = future_to_token[future]
+            try:
+                results[token["symbol"]] = future.result()
+            except Exception as e:
+                print(f"Token {token['symbol']} failed: {e}")
+                results[token["symbol"]] = {"error": str(e)}
 
-        await asyncio.sleep(1800)  # обновляем каждые 30 минут
+    CACHE = results
+    CACHE_TIMESTAMP = int(time.time())
+    print("Cache updated")
 
 
-@router.on_event("startup")
-async def startup_event():
-    asyncio.create_task(refresh_cache())
+def get_cache():
+    global CACHE_TIMESTAMP
+    now = int(time.time())
+    if now - CACHE_TIMESTAMP > CACHE_TTL or not CACHE:
+        refresh_cache()
+    return CACHE
 
 
 @router.get("/polygonscan/data")
 def polygonscan_data():
-    return JSONResponse(CACHE["data"])
+    return JSONResponse(get_cache())
 
 
 @router.get("/polygonscan/summary")
 def polygonscan_summary():
-    return JSONResponse(CACHE["summary"])
+    cache = get_cache()
+    summary = []
+    for symbol, data in cache.items():
+        if "error" in data:
+            continue
+        summary.append({
+            "symbol": data["symbol"],
+            "price_usdt": data["price_usdt"],
+            "total_transferred": data["total_transferred"],
+            "total_usdt": data["total_usdt"],
+            "percent_of_supply": data["percent_of_supply"],
+            "market_cap": data["market_cap"]
+        })
+    return JSONResponse(summary)
