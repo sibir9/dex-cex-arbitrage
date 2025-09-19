@@ -11,9 +11,6 @@
         tr:nth-child(even) { background: #1a1a1a; }
         .up { color: #4caf50; font-weight: bold; }
         .down { color: #f44336; font-weight: bold; }
-        .details { cursor: pointer; color: #4caf50; text-decoration: underline; }
-        .tx-list { display: none; text-align: left; margin-top: 5px; padding-left: 15px; font-size: 0.9em; }
-        .tx-list td, .tx-list th { border: 1px solid #333; padding: 5px; }
     </style>
 </head>
 <body>
@@ -28,7 +25,6 @@
                 <th>% от Total Supply</th>
                 <th>Market Cap (USDT)</th>
                 <th>Txs (последний час)</th>
-                <th>Details</th>
             </tr>
         </thead>
         <tbody id="tokens-body"></tbody>
@@ -49,30 +45,21 @@
                     if (t.error) {
                         const row = `<tr>
                             <td>${token}</td>
-                            <td colspan="7" style="color:red;">Ошибка: ${t.error}</td>
+                            <td colspan="6" style="color:red;">Ошибка: ${t.error}</td>
                         </tr>`;
                         tbody.innerHTML += row;
                         continue;
                     }
 
-                    const txHtml = t.transactions.map(tx => 
-                        `<tr>
-                            <td>${tx.hash}</td>
-                            <td>${tx.from}</td>
-                            <td>${tx.to}</td>
-                            <td>${tx.value.toFixed(6)}</td>
-                            <td>${tx.time}</td>
-                        </tr>`).join("");
-
-                    const row = `<tr>
-                        <td>${token}</td>
-                        <td>${t.price_usdt.toFixed(4)}</td>
-                        <td>${t.total_sut.toFixed(2)}</td>
-                        <td>${t.total_usdt.toFixed(2)}</td>
-                        <td>${t.percent_of_supply.toFixed(6)}%</td>
-                        <td>${t.market_cap.toFixed(2)}</td>
-                        <td>${t.transactions.length}</td>
-                        <td class="details" onclick="toggleTxList('${token}')">view all</td>
+                   const row = `<tr>
+    <td>${token}</td>
+    <td>${t.price_usdt.toFixed(4)}</td>
+    <td>${t.total_transferred.toFixed(2)}</td>
+    <td>${t.total_usdt.toFixed(2)}</td>
+    <td>${t.percent_of_supply.toFixed(6)}%</td>
+    <td>${t.market_cap.toFixed(2)}</td>
+    <td>${t.transactions.length}</td>
+    <td class="details" onclick="toggleTxList('${token}')">view all</td>
                     </tr>
                     <tr id="tx-${token}" class="tx-list-row">
                         <td colspan="8">
@@ -89,9 +76,10 @@
                                 <tbody>${txHtml}</tbody>
                             </table>
                         </td>
-                    </tr>`;
+</tr>`;
 
-                    tbody.innerHTML += row;
+
+                  tbody.innerHTML += row;
                 }
 
             } catch (err) {
@@ -111,5 +99,7 @@
         fetchData();
         setInterval(fetchData, 60000); // обновляем раз в минуту
     </script>
+
+    
 </body>
 </html>
