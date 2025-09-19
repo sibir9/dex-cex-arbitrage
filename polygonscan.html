@@ -1,76 +1,116 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Polygonscan Analytics</title>
-    <style>
-        body { font-family: Arial, sans-serif; background: #121212; color: #eee; text-align: center; }
-        table { margin: 30px auto; border-collapse: collapse; width: 95%; }
-        th, td { border: 1px solid #444; padding: 10px; }
-        th { background: #1e1e1e; }
-        tr:nth-child(even) { background: #1a1a1a; }
-        .up { color: #4caf50; font-weight: bold; }
-        .down { color: #f44336; font-weight: bold; }
-    </style>
+<meta charset="UTF-8">
+<title>Polygonscan Analytics</title>
+<style>
+    body { font-family: Arial, sans-serif; background: #121212; color: #eee; text-align: center; }
+    table { margin: 30px auto; border-collapse: collapse; width: 95%; }
+    th, td { border: 1px solid #444; padding: 10px; }
+    th { background: #1e1e1e; }
+    tr:nth-child(even) { background: #1a1a1a; }
+    .up { color: #4caf50; font-weight: bold; }
+    .down { color: #f44336; font-weight: bold; }
+    .details { cursor: pointer; color: #4caf50; text-decoration: underline; }
+    .tx-list { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .tx-list th, .tx-list td { border: 1px solid #666; padding: 5px; font-size: 12px; }
+    .tx-list th { background: #1e1e1e; }
+</style>
 </head>
 <body>
-    <h1>Аналитика токенов (Polygon)</h1>
-    <table>
-        <thead>
-            <tr>
-                <th>Token</th>
-                <th>Цена (USDT)</th>
-                <th>Объем за час (Token)</th>
-                <th>Объем за час (USDT)</th>
-                <th>% от Total Supply</th>
-                <th>Market Cap (USDT)</th>
-                <th>Txs (последний час)</th>
-            </tr>
-        </thead>
-        <tbody id="tokens-body"></tbody>
-    </table>
+<h1>Аналитика токенов (Polygon)</h1>
+<table>
+    <thead>
+        <tr>
+            <th>Token</th>
+            <th>Цена (USDT)</th>
+            <th>Объем за час (Token)</th>
+            <th>Объем за час (USDT)</th>
+            <th>% от Total Supply</th>
+            <th>Market Cap (USDT)</th>
+            <th>Txs (последний час)</th>
+            <th>Details</th>
+        </tr>
+    </thead>
+    <tbody id="tokens-body"></tbody>
+</table>
 
-    <script>
-        async function fetchData() {
-            try {
-                const res = await fetch("/polygonscan/data");
-                const data = await res.json();
-                
-                const tbody = document.getElementById("tokens-body");
-                tbody.innerHTML = "";
+<script>
+async function fetchData() {
+    try {
+        const res = await fetch("/polygonscan/data");
+        const data = await res.json();
+        const tbody = document.getElementById("tokens-body");
+        tbody.innerHTML = "";
 
-                for (const token in data) {
-                    const t = data[token];
+        for (const token in data) {
+            const t = data[token];
 
-                    if (t.error) {
-                        const row = `<tr>
-                            <td>${token}</td>
-                            <td colspan="6" style="color:red;">Ошибка: ${t.error}</td>
-                        </tr>`;
-                        tbody.innerHTML += row;
-                        continue;
-                    }
-
-                   const row = `<tr>
-    <td>${token}</td>
-    <td>${t.price_usdt.toFixed(4)}</td>
-    <td>${t.total_transferred.toFixed(2)}</td>
-    <td>${t.total_usdt.toFixed(2)}</td>
-    <td>${t.percent_of_supply.toFixed(6)}%</td>
-    <td>${t.market_cap.toFixed(2)}</td>
-    <td>${t.transactions.length}</td>
-</tr>`;
-
-                    tbody.innerHTML += row;
-                }
-
-            } catch (err) {
-                console.error("Ошибка загрузки:", err);
+            if (t.error) {
+                const row = `<tr>
+                    <td>${token}</td>
+                    <td colspan="8" style="color:red;">Ошибка: ${t.error}</td>
+                </tr>`;
+                tbody.innerHTML += row;
+                continue;
             }
-        }
 
-        fetchData();
-        setInterval(fetchData, 60000); // обновляем раз в минуту
-    </script>
+            // Генерация строк транзакций
+            const txHtml = t.transactions.map(tx => 
+                `<tr>
+                    <td>${tx.hash}</td>
+                    <td>${tx.from}</td>
+                    <td>${tx.to}</td>
+                    <td>${tx.value.toFixed(6)}</td>
+                    <td>${tx.time}</td>
+                </tr>`
+            ).join("");
+
+            const row = `<tr>
+                <td>${token}</td>
+                <td>${t.price_usdt.toFixed(4)}</td>
+                <td>${t.total_sut.toFixed(2)}</td>
+                <td>${t.total_usdt.toFixed(2)}</td>
+                <td>${t.percent_of_supply.toFixed(6)}%</td>
+                <td>${t.market_cap.toFixed(2)}</td>
+                <td>${t.transactions.length}</td>
+                <td class="details" onclick="toggleTxList('${token}')">view all</td>
+            </tr>
+            <tr id="tx-${token}" class="tx-list-row" style="display:none;">
+                <td colspan="8">
+                    <table class="tx-list">
+                        <thead>
+                            <tr>
+                                <th>Hash</th>
+                                <th>From</th>
+                                <th>To</th>
+                                <th>Value</th>
+                                <th>Time</th>
+                            </tr>
+                        </thead>
+                        <tbody>${txHtml}</tbody>
+                    </table>
+                </td>
+            </tr>`;
+
+            tbody.innerHTML += row;
+        }
+    } catch (err) {
+        console.error("Ошибка загрузки:", err);
+    }
+}
+
+function toggleTxList(token) {
+    const row = document.getElementById(`tx-${token}`);
+    if (row.style.display === "table-row") {
+        row.style.display = "none";
+    } else {
+        row.style.display = "table-row";
+    }
+}
+
+fetchData();
+setInterval(fetchData, 60000); // обновляем раз в минуту
+</script>
 </body>
 </html>
