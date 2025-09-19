@@ -25,7 +25,7 @@ def get_price_usdt(pair: str):
     try:
         url = "https://api.mexc.com/api/v3/ticker/price"
         params = {"symbol": pair}
-        resp = requests.get(url, params=params, timeout=10).json()
+        resp = requests.get(url, params=params, timeout=30).json()
         return float(resp.get("price", 0))
     except Exception as e:
         print(f"Error fetching {pair} price:", e)
