@@ -11,6 +11,11 @@
         tr:nth-child(even) { background: #1a1a1a; }
         .up { color: #4caf50; font-weight: bold; }
         .down { color: #f44336; font-weight: bold; }
+        .details-btn { color: #4caf50; cursor: pointer; text-decoration: underline; }
+        .tx-list-row { display: none; background: #222; }
+        .tx-list { width: 100%; border-collapse: collapse; margin-top: 5px; }
+        .tx-list th, .tx-list td { border: 1px solid #555; padding: 5px; font-size: 12px; }
+        .tx-list th { background: #333; }
     </style>
 </head>
 <body>
@@ -20,11 +25,12 @@
             <tr>
                 <th>Token</th>
                 <th>Цена (USDT)</th>
-                <th>Объем за час (Token)</th>
-                <th>Объем за час (USDT)</th>
+                <th>Объем за 30 мин (Token)</th>
+                <th>Объем за 30 мин (USDT)</th>
                 <th>% от Total Supply</th>
                 <th>Market Cap (USDT)</th>
-                <th>Txs (последний час)</th>
+                <th>Txs</th>
+                <th>Details</th>
             </tr>
         </thead>
         <tbody id="tokens-body"></tbody>
@@ -35,33 +41,63 @@
             try {
                 const res = await fetch("/polygonscan/data");
                 const data = await res.json();
-                
                 const tbody = document.getElementById("tokens-body");
                 tbody.innerHTML = "";
 
                 for (const token in data) {
                     const t = data[token];
-
                     if (t.error) {
-                        const row = `<tr>
+                        tbody.innerHTML += `<tr>
                             <td>${token}</td>
-                            <td colspan="6" style="color:red;">Ошибка: ${t.error}</td>
+                            <td colspan="7" style="color:red;">Ошибка: ${t.error}</td>
                         </tr>`;
-                        tbody.innerHTML += row;
                         continue;
                     }
 
-                   const row = `<tr>
-    <td>${token}</td>
-    <td>${t.price_usdt.toFixed(4)}</td>
-    <td>${t.total_transferred.toFixed(2)}</td>
-    <td>${t.total_usdt.toFixed(2)}</td>
-    <td>${t.percent_of_supply.toFixed(6)}%</td>
-    <td>${t.market_cap.toFixed(2)}</td>
-    <td>${t.transactions.length}</td>
-</tr>`;
+                    // создаем HTML для транзакций
+                    let txHtml = "";
+                    for (const tx of t.transactions) {
+                        txHtml += `<tr>
+                            <td>${tx.hash}</td>
+                            <td>${tx.from}</td>
+                            <td>${tx.to}</td>
+                            <td>${tx.value}</td>
+                            <td>${tx.time}</td>
+                        </tr>`;
+                    }
 
-                    tbody.innerHTML += row;
+                    const row = document.createElement("tr");
+                    row.innerHTML = `
+                        <td>${token}</td>
+                        <td>${t.price_usdt.toFixed(4)}</td>
+                        <td>${t.total_transferred.toFixed(2)}</td>
+                        <td>${t.total_usdt.toFixed(2)}</td>
+                        <td>${t.percent_of_supply.toFixed(6)}%</td>
+                        <td>${t.market_cap.toFixed(2)}</td>
+                        <td>${t.transactions.length}</td>
+                        <td class="details-btn" onclick="toggleTxList('${token}')">view all</td>
+                    `;
+                    tbody.appendChild(row);
+
+                    // скрытая строка с транзакциями
+                    const txRow = document.createElement("tr");
+                    txRow.id = `tx-${token}`;
+                    txRow.className = "tx-list-row";
+                    txRow.innerHTML = `<td colspan="8">
+                        <table class="tx-list">
+                            <thead>
+                                <tr>
+                                    <th>Hash</th>
+                                    <th>From</th>
+                                    <th>To</th>
+                                    <th>Value</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>${txHtml}</tbody>
+                        </table>
+                    </td>`;
+                    tbody.appendChild(txRow);
                 }
 
             } catch (err) {
@@ -69,8 +105,17 @@
             }
         }
 
+        function toggleTxList(token) {
+            const row = document.getElementById(`tx-${token}`);
+            if (row.style.display === "table-row") {
+                row.style.display = "none";
+            } else {
+                row.style.display = "table-row";
+            }
+        }
+
         fetchData();
-        setInterval(fetchData, 60000); // обновляем раз в минуту
+        setInterval(fetchData, 60000); // обновление раз в минуту
     </script>
 </body>
 </html>
