@@ -120,25 +120,52 @@
             renderTrades(); // сразу перерисовать
         }
 
+
+
+
+
         function copyAddress(address) {
-            navigator.clipboard.writeText(address).then(() => {
-                const notif = document.createElement('div');
-                notif.textContent = "Адрес контракта скопирован";
-                notif.style.position = 'fixed';
-                notif.style.bottom = '20px';
-                notif.style.right = '20px';
-                notif.style.background = '#4caf50';
-                notif.style.color = '#fff';
-                notif.style.padding = '10px 15px';
-                notif.style.borderRadius = '5px';
-                notif.style.boxShadow = '0 2px 5px rgba(0,0,0,0.3)';
-                notif.style.zIndex = '9999';
-                document.body.appendChild(notif);
-                setTimeout(() => notif.remove(), 2000);
-            }).catch(err => {
-                console.error('Ошибка копирования:', err);
-            });
+    if (navigator.clipboard && window.isSecureContext) {
+        // Современный способ (работает только на HTTPS/localhost)
+        navigator.clipboard.writeText(address).then(() => {
+            showNotification("Адрес контракта скопирован");
+        }).catch(err => {
+            console.error("Ошибка копирования:", err);
+        });
+    } else {
+        // Фолбэк для HTTP
+        const textarea = document.createElement("textarea");
+        textarea.value = address;
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            document.execCommand("copy");
+            showNotification("Адрес контракта скопирован");
+        } catch (err) {
+            console.error("Ошибка копирования:", err);
         }
+        document.body.removeChild(textarea);
+    }
+}
+
+function showNotification(text) {
+    const notif = document.createElement('div');
+    notif.textContent = text;
+    notif.style.position = 'fixed';
+    notif.style.bottom = '20px';
+    notif.style.right = '20px';
+    notif.style.background = '#4caf50';
+    notif.style.color = '#fff';
+    notif.style.padding = '10px 15px';
+    notif.style.borderRadius = '5px';
+    notif.style.boxShadow = '0 2px 5px rgba(0,0,0,0.3)';
+    notif.style.zIndex = '9999';
+    document.body.appendChild(notif);
+    setTimeout(() => notif.remove(), 2000);
+}
+
+
+  
 
         fetchTrades();
         setInterval(fetchTrades, 10000);
