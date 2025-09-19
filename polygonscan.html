@@ -102,11 +102,7 @@ async function fetchData() {
 
 function toggleTxList(token) {
     const row = document.getElementById(`tx-${token}`);
-    if (row.style.display === "table-row") {
-        row.style.display = "none";
-    } else {
-        row.style.display = "table-row";
-    }
+    row.style.display = (row.style.display === "table-row") ? "none" : "table-row";
 }
 
 fetchData();
