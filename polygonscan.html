@@ -51,17 +51,16 @@
                         continue;
                     }
 
-                    const row = `
-                        <tr>
-                            <td>${token}</td>
-                            <td>${t.price_usdt.toFixed(4)}</td>
-                            <td>${t.total.toFixed(2)}</td>
-                            <td>${t.total_usdt.toFixed(2)}</td>
-                            <td>${t.percent_of_supply.toFixed(6)}%</td>
-                            <td>${t.market_cap.toFixed(2)}</td>
-                            <td>${t.transactions.length}</td>
-                        </tr>
-                    `;
+                   const row = `<tr>
+    <td>${token}</td>
+    <td>${t.price_usdt.toFixed(4)}</td>
+    <td>${t.total_transferred.toFixed(2)}</td>
+    <td>${t.total_usdt.toFixed(2)}</td>
+    <td>${t.percent_of_supply.toFixed(6)}%</td>
+    <td>${t.market_cap.toFixed(2)}</td>
+    <td>${t.transactions.length}</td>
+</tr>`;
+
                     tbody.innerHTML += row;
                 }
 
